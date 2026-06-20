@@ -265,12 +265,12 @@ function SquadDetail({ squad, onBack, strongestByPos }: { squad: TeamSquad; onBa
 
       <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden">
         {/* Banner */}
-        <div className="bg-[#1A1A1A] px-6 py-5 flex items-center gap-5 border-b border-[#222222]">
-          <span className="text-5xl">{getSquadFlag(squad)}</span>
+        <div className="bg-[#1A1A1A] px-4 sm:px-6 py-4 sm:py-5 flex items-center gap-4 sm:gap-5 border-b border-[#222222]">
+          <span className="text-4xl sm:text-5xl">{getSquadFlag(squad)}</span>
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-black text-white">{squad.teamCn}</h2>
-              <span className="text-sm font-black bg-[#00FF41] text-[#0A0A0A] px-2.5 py-1 rounded-lg leading-none">
+              <h2 className="text-xl sm:text-2xl font-black text-white">{squad.teamCn}</h2>
+              <span className="text-xs sm:text-sm font-black bg-[#00FF41] text-[#0A0A0A] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg leading-none">
                 FIFA #{squad.fifaRank}
               </span>
             </div>
@@ -296,7 +296,7 @@ function SquadDetail({ squad, onBack, strongestByPos }: { squad: TeamSquad; onBa
             return (
               <div key={pos}>
                 {/* Position header */}
-                <div className={`px-6 py-2 flex items-center gap-2 ${POSITION_COLORS[pos] || "bg-gray-500/20 text-gray-400"} bg-opacity-10`}>
+                <div className={`px-4 sm:px-6 py-2 flex items-center gap-2 ${POSITION_COLORS[pos] || "bg-gray-500/20 text-gray-400"} bg-opacity-10`}>
                   <span className="text-xs font-black uppercase tracking-wider">
                     {pos}
                   </span>
@@ -327,7 +327,7 @@ function PlayerRow({ player, strongestByPos }: { player: Player; strongestByPos:
   const isStrongest = strongest?.playerName === player.name && strongest?.playerNameEn === player.nameEn;
 
   return (
-    <div className={`px-6 py-3 flex items-center gap-4 transition-colors ${isStrongest ? 'bg-[#00FF41]/5 border-l-2 border-[#00FF41]' : 'hover:bg-[#1A1A1A]/40'}`}>
+    <div className={`px-3 sm:px-6 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-4 transition-colors ${isStrongest ? 'bg-[#00FF41]/5 border-l-2 border-[#00FF41]' : 'hover:bg-[#1A1A1A]/40'}`}>
       {/* Jersey number */}
       <span className={`w-8 text-center font-mono text-lg font-black ${isStrongest ? 'text-[#FFD700]' : 'text-[#00FF41]'}`}>
         {player.number}

@@ -105,8 +105,8 @@ export default function GroupSummary({ groupTables, onNavigateToTeam }: Props) {
       </div>
 
       {/* All Teams Table */}
-      <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden">
-        <div className="bg-[#1A1A1A] px-6 py-4 flex items-center justify-between border-b border-[#222222]">
+      <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden overflow-x-auto hide-scrollbar">
+        <div className="bg-[#1A1A1A] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-[#222222]">
           <span className="text-lg font-black text-[#00FF41] tracking-wider">
             全部球队 {allTeams.length}支
           </span>
@@ -114,7 +114,7 @@ export default function GroupSummary({ groupTables, onNavigateToTeam }: Props) {
         </div>
 
         {/* Column headers */}
-        <div className="px-4 py-2.5 flex items-center gap-1.5 text-[10px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider">
+        <div className="px-4 py-2.5 flex items-center gap-1.5 text-[10px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider min-w-[550px]">
           <span className="w-7 text-center">#</span>
           <span className="flex-1 min-w-0 text-left">球队</span>
           <span className="w-8 text-center">组</span>
@@ -133,7 +133,7 @@ export default function GroupSummary({ groupTables, onNavigateToTeam }: Props) {
           {allTeams.map((r, idx) => (
             <div
               key={`${r.group}-${r.team}`}
-              className={`px-4 py-3 flex items-center gap-1.5 transition-colors hover:bg-[#1A1A1A]/60 ${getZoneStyle(r.groupRank)}`}
+              className={`px-4 py-3 flex items-center gap-1.5 transition-colors hover:bg-[#1A1A1A]/60 min-w-[550px] ${getZoneStyle(r.groupRank)}`}
             >
               {/* Global rank */}
               <span className="w-7 text-center font-mono text-xs font-bold text-[#666666]">

@@ -18,9 +18,9 @@ export default function GroupTable({ table, onNavigateToTeam }: Props) {
   }
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden">
+    <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden overflow-x-auto hide-scrollbar">
       {/* Header */}
-      <div className="bg-[#1A1A1A] px-6 py-4 flex items-center justify-between border-b border-[#222222]">
+      <div className="bg-[#1A1A1A] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-[#222222]">
         <div className="flex items-center gap-3">
           <span className="text-2xl font-black text-[#00FF41] text-glow tracking-wider">
             {table.group}组
@@ -32,7 +32,7 @@ export default function GroupTable({ table, onNavigateToTeam }: Props) {
       </div>
 
       {/* Column headers */}
-      <div className="px-6 py-2.5 flex items-center gap-2 text-xs text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider">
+      <div className="px-4 sm:px-6 py-2.5 flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider min-w-[520px]">
         <span className="w-8 text-center">#</span>
         <span className="flex-1 text-left">球队</span>
         <span className="w-12 text-center">赛/总</span>
@@ -50,7 +50,7 @@ export default function GroupTable({ table, onNavigateToTeam }: Props) {
         {table.records.map((r, idx) => (
           <div
             key={r.team}
-            className={`px-6 py-4 flex items-center gap-2 transition-colors ${
+            className={`px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-1 sm:gap-2 transition-colors min-w-[520px] ${
               idx < 2 ? "bg-[#00FF41]/[0.05]" : ""
             } hover:bg-[#1A1A1A]/60`}
           >

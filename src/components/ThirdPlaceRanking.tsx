@@ -80,8 +80,8 @@ export default function ThirdPlaceRanking({ groupTables, onNavigateToTeam }: Pro
       </div>
 
       {/* 3rd Place Ranking Table */}
-      <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden">
-        <div className="bg-[#1A1A1A] px-6 py-4 flex items-center gap-3 border-b border-[#222222]">
+      <div className="bg-[#111111] border border-[#222222] rounded-2xl overflow-hidden overflow-x-auto hide-scrollbar">
+        <div className="bg-[#1A1A1A] px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 border-b border-[#222222]">
           <span className="text-lg font-black text-[#FFAA00] tracking-wider">
             第3名排名
           </span>
@@ -91,7 +91,7 @@ export default function ThirdPlaceRanking({ groupTables, onNavigateToTeam }: Pro
         </div>
 
         {/* Column headers */}
-        <div className="px-4 md:px-6 py-2.5 flex items-center gap-2 text-[11px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider">
+        <div className="px-4 py-2.5 flex items-center gap-1.5 text-[10px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider min-w-[480px]">
           <span className="w-8 text-center">#</span>
           <span className="flex-1 text-left">球队</span>
           <span className="w-8 text-center">组</span>
@@ -109,7 +109,7 @@ export default function ThirdPlaceRanking({ groupTables, onNavigateToTeam }: Pro
           {thirdPlaceRanking.map((r, idx) => (
             <div
               key={r.team}
-              className={`px-4 md:px-6 py-3 flex items-center gap-2 transition-colors hover:bg-[#1A1A1A]/60 ${
+              className={`px-4 py-3 flex items-center gap-1.5 transition-colors hover:bg-[#1A1A1A]/60 min-w-[480px] ${
                 idx < 8 ? "bg-[#FFAA00]/[0.04]" : "bg-[#FF0055]/[0.03] opacity-50"
               }`}
             >
