@@ -218,7 +218,7 @@ export default function ScheduleTimeline({
                     <p className="mt-2 text-xs">当天暂无赛程</p>
                   </div>
                 ) : (
-                  <div className="grid gap-3 grid-cols-2">
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                     {dayMatches.map((match) => (
                       <MatchCard key={match.id} match={match} onNavigateToTeam={onNavigateToTeam} />
                     ))}
