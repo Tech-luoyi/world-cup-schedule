@@ -5,7 +5,6 @@ import ScheduleTimeline from "./components/ScheduleTimeline";
 import StandingsPage from "./components/StandingsPage";
 import TeamsPage from "./components/TeamsPage";
 import Footer from "./components/Footer";
-import SqlExplorer from "./components/SqlExplorer";
 import { fetchMatches } from "./services/api";
 import { initDuckDB } from "./services/duckdb";
 import type { Match } from "./types/match";
@@ -170,7 +169,6 @@ function App() {
       </main>
 
       <Footer />
-      <SqlExplorer />
     </div>
   );
 }
