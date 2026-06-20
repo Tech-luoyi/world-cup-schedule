@@ -114,74 +114,74 @@ export default function GroupSummary({ groupTables, onNavigateToTeam }: Props) {
         </div>
 
         {/* Column headers */}
-        <div className="px-4 py-2.5 flex items-center gap-1.5 text-[10px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider min-w-[550px]">
-          <span className="w-7 text-center">#</span>
+        <div className="px-2 py-2.5 flex items-center gap-1 text-[10px] text-[#555555] font-bold border-b border-[#1A1A1A] uppercase tracking-wider min-w-[480px]">
+          <span className="w-6 text-center">#</span>
           <span className="flex-1 min-w-0 text-left">球队</span>
-          <span className="w-8 text-center">组</span>
-          <span className="w-10 text-center">区域</span>
-          <span className="w-10 text-center">赛/总</span>
-          <span className="w-8 text-center">胜</span>
-          <span className="w-8 text-center">平</span>
-          <span className="w-8 text-center">负</span>
-          <span className="w-10 text-center">进球</span>
-          <span className="w-10 text-center">失球</span>
-          <span className="w-10 text-center">净胜</span>
-          <span className="w-12 text-right text-[#00FF41]">积分</span>
+          <span className="w-7 text-center">组</span>
+          <span className="w-9 text-center">区域</span>
+          <span className="w-9 text-center">赛/总</span>
+          <span className="w-7 text-center">胜</span>
+          <span className="w-7 text-center">平</span>
+          <span className="w-7 text-center">负</span>
+          <span className="w-8 text-center">进</span>
+          <span className="w-8 text-center">失</span>
+          <span className="w-8 text-center">净</span>
+          <span className="w-10 text-right text-[#00FF41]">分</span>
         </div>
 
         <div className="divide-y divide-[#1A1A1A]">
           {allTeams.map((r, idx) => (
             <div
               key={`${r.group}-${r.team}`}
-              className={`px-4 py-3 flex items-center gap-1.5 transition-colors hover:bg-[#1A1A1A]/60 min-w-[550px] ${getZoneStyle(r.groupRank)}`}
+              className={`px-2 py-3 flex items-center gap-1 transition-colors hover:bg-[#1A1A1A]/60 min-w-[480px] ${getZoneStyle(r.groupRank)}`}
             >
               {/* Global rank */}
-              <span className="w-7 text-center font-mono text-xs font-bold text-[#666666]">
+              <span className="w-6 text-center font-mono text-xs font-bold text-[#666666]">
                 {idx + 1}
               </span>
 
               {/* Flag + Team */}
               <button
-                className="flex-1 min-w-0 flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex-1 min-w-0 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => onNavigateToTeam(r.teamKey)}
                 title={`查看${r.team}球队详情`}
               >
-                <span className="text-xl flex-shrink-0">{r.flag}</span>
-                <span className="text-sm font-bold text-white truncate">{r.team}</span>
+                <span className="text-lg flex-shrink-0">{r.flag}</span>
+                <span className="text-xs sm:text-sm font-bold text-white truncate">{r.team}</span>
               </button>
 
               {/* Group */}
-              <span className="w-8 text-center text-sm text-white font-mono font-bold">
+              <span className="w-7 text-center text-xs text-white font-mono font-bold">
                 {r.group}
               </span>
 
               {/* Zone badge */}
-              <span className={`w-10 text-center text-[10px] font-bold rounded px-1 py-0.5 ${getZoneBadge(r.groupRank)}`}>
+              <span className={`w-9 text-center text-[10px] font-bold rounded px-0.5 py-0.5 ${getZoneBadge(r.groupRank)}`}>
                 {getZoneLabel(r.groupRank)}
               </span>
 
               {/* MP */}
-              <span className="w-10 text-center text-xs text-[#888888] font-mono">
+              <span className="w-9 text-center text-xs text-[#888888] font-mono">
                 {r.mp}<span className="text-[#444444]">/{r.totalMatches}</span>
               </span>
               {/* W */}
-              <span className="w-8 text-center text-xs text-[#00FF41] font-mono font-bold">{r.w}</span>
+              <span className="w-7 text-center text-xs text-[#00FF41] font-mono font-bold">{r.w}</span>
               {/* D */}
-              <span className="w-8 text-center text-xs text-[#FFD700]/70 font-mono">{r.d}</span>
+              <span className="w-7 text-center text-xs text-[#FFD700]/70 font-mono">{r.d}</span>
               {/* L */}
-              <span className="w-8 text-center text-xs text-[#FF0055]/50 font-mono">{r.l}</span>
+              <span className="w-7 text-center text-xs text-[#FF0055]/50 font-mono">{r.l}</span>
               {/* GF */}
-              <span className="w-10 text-center text-xs text-white font-mono font-semibold">{r.gf}</span>
+              <span className="w-8 text-center text-xs text-white font-mono font-semibold">{r.gf}</span>
               {/* GA */}
-              <span className="w-10 text-center text-xs text-[#888888] font-mono">{r.ga}</span>
+              <span className="w-8 text-center text-xs text-[#888888] font-mono">{r.ga}</span>
               {/* GD */}
-              <span className={`w-10 text-center text-xs font-mono font-bold ${
+              <span className={`w-8 text-center text-xs font-mono font-bold ${
                 r.gd > 0 ? "text-[#00FF41]" : r.gd < 0 ? "text-[#FF0055]/80" : "text-[#666666]"
               }`}>
                 {r.gd > 0 ? "+" : ""}{r.gd}
               </span>
               {/* Pts */}
-              <span className="w-12 text-right text-base font-mono text-[#00FF41] font-black">{r.pts}</span>
+              <span className="w-10 text-right text-sm font-mono text-[#00FF41] font-black">{r.pts}</span>
             </div>
           ))}
         </div>

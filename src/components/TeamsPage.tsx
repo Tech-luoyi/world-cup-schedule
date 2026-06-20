@@ -327,44 +327,44 @@ function PlayerRow({ player, strongestByPos }: { player: Player; strongestByPos:
   const isStrongest = strongest?.playerName === player.name && strongest?.playerNameEn === player.nameEn;
 
   return (
-    <div className={`px-3 sm:px-6 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-4 transition-colors ${isStrongest ? 'bg-[#00FF41]/5 border-l-2 border-[#00FF41]' : 'hover:bg-[#1A1A1A]/40'}`}>
+    <div className={`px-2 sm:px-6 py-2.5 sm:py-3 flex items-center gap-1.5 sm:gap-4 transition-colors ${isStrongest ? 'bg-[#00FF41]/5 border-l-2 border-[#00FF41]' : 'hover:bg-[#1A1A1A]/40'}`}>
       {/* Jersey number */}
-      <span className={`w-8 text-center font-mono text-lg font-black ${isStrongest ? 'text-[#FFD700]' : 'text-[#00FF41]'}`}>
+      <span className={`w-6 text-center font-mono text-sm sm:text-lg font-black ${isStrongest ? 'text-[#FFD700]' : 'text-[#00FF41]'}`}>
         {player.number}
       </span>
 
       {/* Name + club */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-white truncate">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs sm:text-sm font-bold text-white truncate">
             {player.name}
           </span>
-          <span className="text-[10px] text-[#555555] font-mono">
+          <span className="hidden sm:inline text-[10px] text-[#555555] font-mono">
             {player.nameEn}
           </span>
           {isStrongest && (
-            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${POSITION_HIGHLIGHT[pos] || "bg-[#00FF41] text-[#0A0A0A]"}`}>
-              最强{pos}
+            <span className={`text-[10px] font-black px-1 py-0.5 rounded flex-shrink-0 ${POSITION_HIGHLIGHT[pos] || "bg-[#00FF41] text-[#0A0A0A]"}`}>
+              最强
             </span>
           )}
         </div>
-        <p className="text-xs text-[#666666] truncate mt-0.5">
+        <p className="text-[11px] text-[#666666] truncate mt-0.5">
           {player.club}
         </p>
       </div>
 
       {/* Detailed position badge */}
-      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${POSITION_COLORS[pos] || "bg-gray-500/20 text-gray-400"}`}>
+      <span className={`text-[10px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${POSITION_COLORS[pos] || "bg-gray-500/20 text-gray-400"}`}>
         {pos}
       </span>
 
       {/* Market value */}
-      <span className={`w-16 text-right text-xs font-mono font-bold ${isStrongest ? 'text-[#FFD700]' : 'text-[#00FF41]'}`}>
+      <span className={`w-14 text-right text-[11px] font-mono font-bold flex-shrink-0 ${isStrongest ? 'text-[#FFD700]' : 'text-[#00FF41]'}`}>
         {formatMarketValue(player.marketValueEuro)}
       </span>
 
       {/* Age */}
-      <span className="w-10 text-right text-xs text-[#888888] font-mono">
+      <span className="w-7 text-right text-[11px] text-[#888888] font-mono flex-shrink-0">
         {player.age}岁
       </span>
 
