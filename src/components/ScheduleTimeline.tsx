@@ -199,13 +199,13 @@ export default function ScheduleTimeline({
             <Fragment key={date}>
               {/* Vertical divider between dates (not before first) */}
               {idx > 0 && (
-                <div className="flex-shrink-0 w-px bg-[#1A1A1A] self-stretch mx-[3.75rem]" />
+                <div className="flex-shrink-0 w-px bg-[#1A1A1A] self-stretch mx-4 lg:mx-[3.75rem]" />
               )}
 
               {/* Date section */}
               <div
                 data-section="true"
-                className="flex-shrink-0 w-[640px]"
+                className="flex-shrink-0 w-[calc(100vw-2rem)] lg:w-[640px]"
               >
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-sm font-bold text-[#888888]">{dateLabel}</span>
