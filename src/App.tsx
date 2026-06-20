@@ -97,9 +97,9 @@ function App() {
   // ── Loading / Error states ──
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+      <div className="min-h-screen bg-[#0A0A0A]">
         <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block w-8 h-8 border-2 border-[#00FF41]/30 border-t-[#00FF41] rounded-full animate-spin" />
             <p className="mt-3 text-sm text-[#888888]">正在获取赛程数据...</p>
@@ -112,9 +112,9 @@ function App() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+      <div className="min-h-screen bg-[#0A0A0A]">
         <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex items-center justify-center">
           <div className="text-center">
             <span className="text-4xl">⚠️</span>
             <p className="mt-2 text-sm text-[#FF0055]">数据加载失败</p>
@@ -127,10 +127,10 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+    <div className="min-h-screen bg-[#0A0A0A]">
       <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
 
-      <main className="flex-1">
+      <main>
         {/* Tab: 赛程 */}
         {activeTab === "schedule" && (
           <>
