@@ -101,6 +101,8 @@ export default function ScheduleTimeline({
     const handleScroll = () => {
       const container = mainRef.current;
       if (container == null) return;
+      // Ignore scroll events during programmatic smooth scroll (feedback loop guard)
+      if (scrollInProgress.current) return;
       const sections = container.querySelectorAll<HTMLElement>("[data-section]");
       const mid = container.scrollLeft + container.clientWidth / 2;
       let best = 0;

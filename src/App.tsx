@@ -66,10 +66,6 @@ function App() {
     return Array.from(dateSet).sort();
   }, [allMatches]);
 
-  const filteredMatches = useMemo(() => {
-    return allMatches.filter((m) => m.date === selectedDate);
-  }, [allMatches, selectedDate]);
-
   const nextMatch = useMemo(() => {
     const upcoming = allMatches.filter((m) => m.status === "upcoming");
     if (upcoming.length === 0) return null;
@@ -79,6 +75,11 @@ function App() {
       return dc < de ? curr : earliest;
     });
   }, [allMatches]);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayMatches = useMemo(() => {
+    return allMatches.filter((m) => m.date === todayStr);
+  }, [allMatches, todayStr]);
 
   const liveCount = allMatches.filter((m) => m.status === "live").length;
   const totalCount = allMatches.length;
@@ -142,7 +143,7 @@ function App() {
               </div>
               <div className="flex items-center gap-1.5 text-[#888888]">
                 <span>📅</span>
-                <span>{filteredMatches.length} 场比赛</span>
+                <span>{todayMatches.length} 场比赛</span>
               </div>
               {totalCount > 0 && (
                 <div className="flex items-center gap-1.5 text-[#666666]">
