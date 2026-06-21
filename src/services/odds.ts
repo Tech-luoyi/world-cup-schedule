@@ -63,7 +63,7 @@ export async function fetchAllOdds(): Promise<OddsEvent[]> {
     return [];
   }
 
-  const regions = "uk,eu,us,asia";
+  const regions = "uk,eu,us";
   const markets = "h2h,spreads,totals";
   const url = `${BASE}/sports/soccer_fifa_world_cup/odds/?apiKey=${key}&regions=${regions}&markets=${markets}&oddsFormat=american`;
 
