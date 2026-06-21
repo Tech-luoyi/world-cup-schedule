@@ -56,8 +56,8 @@ function mapStatus(status: string, utcDate: string): "upcoming" | "live" | "fini
   const matchTime = new Date(utcDate + "Z").getTime();
   const now = Date.now();
   const elapsed = now - matchTime; // ms since match start
-  if (elapsed > 0 && elapsed < 150 * 60 * 1000) return "live";    // within 2.5h window
-  if (elapsed >= 150 * 60 * 1000) return "finished";              // past the window
+  if (elapsed > 0 && elapsed < 120 * 60 * 1000) return "live";    // within 2h window
+  if (elapsed >= 120 * 60 * 1000) return "finished";              // past the window
   return "upcoming";
 }
 
