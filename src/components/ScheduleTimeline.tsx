@@ -19,6 +19,7 @@ export default function ScheduleTimeline({
   const dateStripRef = useRef<HTMLDivElement>(null);
   const scrollInProgress = useRef(false);
   const lastDateRef = useRef("");
+  const internalChangeRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
   // Scroll to center the target date section
@@ -101,8 +102,6 @@ export default function ScheduleTimeline({
     const handleScroll = () => {
       const container = mainRef.current;
       if (container == null) return;
-      // Ignore scroll events during programmatic smooth scroll (feedback loop guard)
-      if (scrollInProgress.current) return;
       const sections = container.querySelectorAll<HTMLElement>("[data-section]");
       const mid = container.scrollLeft + container.clientWidth / 2;
       let best = 0;
@@ -110,6 +109,7 @@ export default function ScheduleTimeline({
         if (sections[i].offsetLeft + sections[i].clientWidth / 2 <= mid) best = i;
       }
       if (best !== activeIndex) {
+        internalChangeRef.current = true;
         setActiveIndex(best);
         onDateChange(allDates[best]);
         syncDateStrip(best);
@@ -129,8 +129,13 @@ export default function ScheduleTimeline({
     };
   }, [activeIndex, allDates, onDateChange, syncDateStrip]);
 
-  // Scroll to selectedDate when it changes (e.g. after data load determines today)
+  // Scroll to selectedDate only when the change comes from OUTSIDE (e.g. parent data load)
+  // Internal changes (tap / scroll) are handled inside the component and must NOT re-scroll
   useEffect(() => {
+    if (internalChangeRef.current) {
+      internalChangeRef.current = false;
+      return;
+    }
     if (lastDateRef.current === selectedDate) return;
     lastDateRef.current = selectedDate;
     const idx = allDates.indexOf(selectedDate);
@@ -143,6 +148,7 @@ export default function ScheduleTimeline({
 
   // Handle date strip tap — jump to center
   const handleDateTap = (index: number) => {
+    internalChangeRef.current = true;
     setActiveIndex(index);
     onDateChange(allDates[index]);
     scrollToDate(index);
