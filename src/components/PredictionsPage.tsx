@@ -103,6 +103,43 @@ function ParticleBurst() {
   );
 }
 
+/** Aggregate h2h odds from multiple bookmakers into true probabilities (juice removed) */
+function aggregateOddsProbabilities(oddsRows: any[]): {
+  homeProb: number;
+  drawProb: number;
+  awayProb: number;
+  bookmakerCount: number;
+} | null {
+  const h2hRows = oddsRows.filter((r: any) => r.market_type === 'h2h');
+  if (h2hRows.length === 0) return null;
+
+  let totalHome = 0, totalDraw = 0, totalAway = 0;
+  let count = 0;
+
+  for (const r of h2hRows) {
+    if (r.home_price == null || r.away_price == null || r.draw_price == null) continue;
+    const hp = americanToProb(r.home_price);
+    const dp = americanToProb(r.draw_price);
+    const ap = americanToProb(r.away_price);
+    const sum = hp + dp + ap;
+    if (sum <= 0) continue;
+    // Remove overround (juice) per bookmaker, then sum
+    totalHome += hp / sum;
+    totalDraw += dp / sum;
+    totalAway += ap / sum;
+    count++;
+  }
+
+  if (count === 0) return null;
+
+  return {
+    homeProb: Math.round((totalHome / count) * 100),
+    drawProb: Math.round((totalDraw / count) * 100),
+    awayProb: Math.round((totalAway / count) * 100),
+    bookmakerCount: count,
+  };
+}
+
 // ── Sub-components ──
 
 function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; flashKey: string | null; oddsRows: any[] }) {
@@ -115,6 +152,7 @@ function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; fla
   const hasDraw = match.drawMoneyLine != null;
   const homeCn = getChineseNameFromAbbr(match.homeAbbr);
   const awayCn = getChineseNameFromAbbr(match.awayAbbr);
+  const aggregated = aggregateOddsProbabilities(oddsRows);
 
   return (
     <div
@@ -165,6 +203,35 @@ function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; fla
             <span>{homeCn} 胜</span>
             <span>平</span>
             <span>{awayCn} 胜</span>
+          </div>
+        </div>
+      )}
+
+      {/* Aggregated multi-bookmaker probability */}
+      {aggregated && (
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-[#555555] mb-1">
+            <span>综合 {aggregated.bookmakerCount} 家博彩公司预测</span>
+          </div>
+          <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
+            <div
+              className="bg-[#00FF41]/60 text-[#0A0A0A] flex items-center justify-center transition-all"
+              style={{ width: `${aggregated.homeProb}%` }}
+            >
+              {aggregated.homeProb > 10 ? `${aggregated.homeProb}%` : ""}
+            </div>
+            <div
+              className="bg-[#FF0055]/40 text-white flex items-center justify-center transition-all"
+              style={{ width: `${aggregated.drawProb}%` }}
+            >
+              {aggregated.drawProb > 8 ? `${aggregated.drawProb}%` : ""}
+            </div>
+            <div
+              className="bg-[#FFAA00]/50 text-[#0A0A0A] flex items-center justify-center transition-all"
+              style={{ width: `${aggregated.awayProb}%` }}
+            >
+              {aggregated.awayProb > 10 ? `${aggregated.awayProb}%` : ""}
+            </div>
           </div>
         </div>
       )}
