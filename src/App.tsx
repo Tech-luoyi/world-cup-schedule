@@ -97,6 +97,9 @@ function App() {
   }, [allMatches]);
 
   const liveCount = allMatches.filter((m) => m.status === "live").length;
+  const liveMatches = useMemo(() => {
+    return allMatches.filter((m) => m.status === "live");
+  }, [allMatches]);
   const totalCount = allMatches.length;
 
   const handleTabChange = useCallback((tab: string) => {
@@ -150,7 +153,7 @@ function App() {
         {/* Tab: 赛程 */}
         {activeTab === "schedule" && (
           <>
-            <Countdown nextMatch={nextMatch} />
+            <Countdown nextMatch={nextMatch} liveMatches={liveMatches} />
             <div className="max-w-4xl mx-auto px-4 mb-2 flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5 text-[#888888]">
                 <span className="w-2 h-2 rounded-full bg-[#00FF41] animate-pulse" />

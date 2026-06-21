@@ -7,9 +7,10 @@ function pad(n: number): string {
 
 type CountdownProps = {
   nextMatch: Match | null;
+  liveMatches: Match[];
 };
 
-export default function Countdown({ nextMatch }: CountdownProps) {
+export default function Countdown({ nextMatch, liveMatches }: CountdownProps) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   // 使用原始 UTC 时间戳，保证倒计时准确
@@ -37,6 +38,31 @@ export default function Countdown({ nextMatch }: CountdownProps) {
     return () => clearInterval(id);
   }, [targetTime]);
 
+  // ── Live matches view ──
+  if (liveMatches.length > 0) {
+    return (
+      <section className="w-full py-6 px-4 text-center">
+        <div className="inline-flex items-center gap-2 text-[#FF4500] text-sm uppercase tracking-[0.2em] mb-4">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF4500] animate-pulse shadow-[0_0_8px_rgba(255,69,0,0.8)]" />
+          比赛进行中
+        </div>
+        {liveMatches.map((m) => (
+          <div key={m.id} className="mb-2 last:mb-0">
+            <div className="text-[#FF4500] text-xl md:text-2xl font-bold tracking-wide">
+              {m.homeFlag} {m.homeTeam} vs {m.awayTeam} {m.awayFlag}
+            </div>
+            {m.homeScore !== undefined && (
+              <div className="text-[#FF4500] text-4xl md:text-5xl font-black mt-1 tracking-widest text-glow">
+                {m.homeScore} : {m.awayScore}
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    );
+  }
+
+  // ── All matches finished ──
   if (!nextMatch) {
     return (
       <section className="w-full py-6 px-4 text-center">
@@ -47,6 +73,7 @@ export default function Countdown({ nextMatch }: CountdownProps) {
     );
   }
 
+  // ── Countdown ──
   return (
     <section className="w-full py-6 px-4 text-center">
       <div className="inline-flex items-center gap-2 text-[#888888] text-sm uppercase tracking-[0.2em] mb-3">
