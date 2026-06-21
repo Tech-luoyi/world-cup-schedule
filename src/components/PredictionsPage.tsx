@@ -397,16 +397,34 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
     let cancelled = false;
     let retries = 0;
     let canFinish = false;
-    const MAX_RETRIES = 15;
+    const MAX_RETRIES = 10;
+
+    // Global timeout: if nothing loaded within 30s, give up and show empty state
+    const globalTimeout = setTimeout(() => {
+      if (!cancelled && !canFinish) {
+        canFinish = true;
+        setLoading(false);
+      }
+    }, 30000);
 
     const loadData = async () => {
       try {
-        await waitForDuckDB();
-        // Wait for the initial auto-sync, then re-trigger if data is still empty
+        // Wait for DuckDB (will retry init if previous attempt failed)
+        try {
+          await waitForDuckDB();
+        } catch {
+          // DuckDB not initialized — try again via initDuckDB()
+          const { initDuckDB } = await import("../services/duckdb");
+          await initDuckDB();
+          await waitForDuckDB();
+        }
+        if (cancelled) return;
+
+        // Wait for ESPN sync
         await waitForSyncCompletion();
         if (cancelled) return;
 
-        // Re-trigger sync if previous one failed or returned no odds data
+        // Re-trigger sync if retrying (initial auto-sync may have failed)
         if (retries > 0) {
           await syncEspnData();
         }
@@ -421,7 +439,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         // If no data at all, retry with re-sync
         if (m.length === 0 && r.length === 0 && c === 0 && retries < MAX_RETRIES) {
           retries++;
-          setTimeout(() => { if (!cancelled) loadData(); }, 3000);
+          setTimeout(() => { if (!cancelled) loadData(); }, 2000);
           return;
         }
 
@@ -432,18 +450,21 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
       } catch (e) {
         if (retries < MAX_RETRIES) {
           retries++;
-          setTimeout(() => { if (!cancelled) loadData(); }, 3000);
+          setTimeout(() => { if (!cancelled) loadData(); }, 2000);
           return;
         }
         canFinish = true;
         console.error("[PredictionsPage] Failed to load data:", e);
       } finally {
-        if (!cancelled && canFinish) setLoading(false);
+        if (!cancelled && canFinish) {
+          clearTimeout(globalTimeout);
+          setLoading(false);
+        }
       }
     };
 
     loadData();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(globalTimeout); };
   }, []);
 
   // ── Highlight: scroll to + flash the targeted match ──
