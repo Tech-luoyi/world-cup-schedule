@@ -36,6 +36,47 @@ function formatOdds(val: number | null): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
+// ── Particle burst for highlight effect ──
+
+function ParticleBurst() {
+  const particles = useMemo(() => {
+    const items: { tx: number; ty: number; size: number; color: string; delay: number }[] = [];
+    const count = 28;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.7;
+      const dist = 70 + Math.random() * 110;
+      items.push({
+        tx: Math.cos(angle) * dist,
+        ty: Math.sin(angle) * dist,
+        size: 3 + Math.random() * 5,
+        color: Math.random() > 0.35 ? '#00FF41' : '#66FF99',
+        delay: Math.random() * 0.12,
+      });
+    }
+    return items;
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-visible pointer-events-none z-10" style={{ left: '50%', top: '50%', width: 0, height: 0 }}>
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          className="particle"
+          style={{
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            boxShadow: `0 0 ${p.size + 2}px ${p.color}`,
+            '--tx': `${p.tx}px`,
+            '--ty': `${p.ty}px`,
+            animationDelay: `${p.delay}s`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── Sub-components ──
 
 function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: string | null }) {
@@ -51,12 +92,13 @@ function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: str
   return (
     <div
       data-match-key={`${match.homeTeamKey}-${match.awayTeamKey}`}
-      className={`bg-[#111111] border border-[#222222] rounded-xl p-4 transition-colors ${
+      className={`relative bg-[#111111] border border-[#222222] rounded-xl p-4 transition-colors ${
         flashKey === `${match.homeTeamKey}-${match.awayTeamKey}`
           ? "highlight-flash"
           : "hover:border-[#333333]"
       }`}
     >
+      {flashKey === `${match.homeTeamKey}-${match.awayTeamKey}` && <ParticleBurst />}
       {/* Header: teams + time */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3 min-w-0">

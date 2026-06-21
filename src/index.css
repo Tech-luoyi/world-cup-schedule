@@ -95,3 +95,25 @@ body {
   80% { box-shadow: 0 0 15px rgba(0, 255, 65, 0.3); }
   100% { box-shadow: 0 0 5px rgba(0, 255, 65, 0.1); }
 }
+
+/* Particle burst for match highlight */
+.particle {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: particle-fly 1s ease-out forwards;
+}
+
+@keyframes particle-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0.15);
+    opacity: 0;
+  }
+}
