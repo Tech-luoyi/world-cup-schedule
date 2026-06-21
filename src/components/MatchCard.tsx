@@ -26,6 +26,7 @@ export default function MatchCard({ match, onNavigateToTeam, onNavigateToPredict
   const isUpcoming = match.status === "upcoming";
 
   const handleCardClick = () => {
+    if (match.status === "finished") return;
     if (onNavigateToPrediction) {
       onNavigateToPrediction(match.homeTeamKey, match.awayTeamKey);
     }

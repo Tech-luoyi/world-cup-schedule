@@ -50,9 +50,9 @@ function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: str
 
   return (
     <div
-      data-match-key={`${match.homeAbbr}-${match.awayAbbr}`}
+      data-match-key={`${match.homeTeamKey}-${match.awayTeamKey}`}
       className={`bg-[#111111] border border-[#222222] rounded-xl p-4 transition-colors ${
-        flashKey === `${match.homeAbbr}-${match.awayAbbr}`
+        flashKey === `${match.homeTeamKey}-${match.awayTeamKey}`
           ? "highlight-flash"
           : "hover:border-[#333333]"
       }`}
