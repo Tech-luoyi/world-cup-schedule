@@ -429,17 +429,25 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
 
     // Switch to odds view
     setView("odds");
+    // Set flash key immediately — OddsCards will animate when they render
+    setFlashKey(key);
 
-    // Wait for DOM to render, then scroll and flash
-    const timer = setTimeout(() => {
+    // Retry scrollIntoView until the element exists (data may still be loading)
+    let retries = 0;
+    const MAX_RETRIES = 30; // ~15s total
+    const tryScroll = () => {
       const el = document.querySelector<HTMLElement>(`[data-match-key="${key}"]`);
-      if (el == null) return;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setFlashKey(key);
-      clearTimeout(flashTimerRef.current);
-      flashTimerRef.current = setTimeout(() => setFlashKey(null), FLASH_DURATION_MS);
-    }, 400);
-    return () => clearTimeout(timer);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        clearTimeout(flashTimerRef.current);
+        flashTimerRef.current = setTimeout(() => setFlashKey(null), FLASH_DURATION_MS);
+        return;
+      }
+      retries++;
+      if (retries < MAX_RETRIES) setTimeout(tryScroll, 500);
+    };
+    setTimeout(tryScroll, 200);
+    return () => { clearTimeout(flashTimerRef.current); };
   }, [externalHighlight]);
 
   const nameMap = useMemo(() => {
