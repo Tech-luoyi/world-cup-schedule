@@ -36,37 +36,63 @@ function formatOdds(val: number | null): string {
   return val > 0 ? `+${val}` : `${val}`;
 }
 
-// ── Particle burst for highlight effect ──
+// ── Border particle effect for highlight ──
 
 function ParticleBurst() {
   const particles = useMemo(() => {
-    const items: { tx: number; ty: number; size: number; color: string; delay: number }[] = [];
-    const count = 28;
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.7;
-      const dist = 70 + Math.random() * 110;
-      items.push({
-        tx: Math.cos(angle) * dist,
-        ty: Math.sin(angle) * dist,
-        size: 3 + Math.random() * 5,
-        color: Math.random() > 0.35 ? '#00FF41' : '#66FF99',
-        delay: Math.random() * 0.12,
-      });
+    const items: { left: string; top: string; tx: number; ty: number; size: number; color: string; delay: number }[] = [];
+    const perEdge = 20;
+    const edges = ['top', 'right', 'bottom', 'left'] as const;
+    for (const edge of edges) {
+      for (let i = 0; i < perEdge; i++) {
+        const t = (i + Math.random() * 0.6) / perEdge;
+        let left: string, top: string, tx: number, ty: number;
+        switch (edge) {
+          case 'top':
+            left = `${t * 100}%`; top = '0';
+            tx = (Math.random() - 0.5) * 50;
+            ty = 15 + Math.random() * 35;
+            break;
+          case 'bottom':
+            left = `${t * 100}%`; top = '100%';
+            tx = (Math.random() - 0.5) * 50;
+            ty = -(15 + Math.random() * 35);
+            break;
+          case 'left':
+            left = '0'; top = `${t * 100}%`;
+            tx = 15 + Math.random() * 35;
+            ty = (Math.random() - 0.5) * 50;
+            break;
+          case 'right':
+            left = '100%'; top = `${t * 100}%`;
+            tx = -(15 + Math.random() * 35);
+            ty = (Math.random() - 0.5) * 50;
+            break;
+        }
+        items.push({
+          left, top, tx, ty,
+          size: 2 + Math.random() * 3,
+          color: Math.random() > 0.25 ? '#00FF41' : '#AAFFAA',
+          delay: Math.random() * 0.4,
+        });
+      }
     }
     return items;
   }, []);
 
   return (
-    <div className="absolute inset-0 overflow-visible pointer-events-none z-10" style={{ left: '50%', top: '50%', width: 0, height: 0 }}>
+    <div className="absolute inset-0 overflow-visible pointer-events-none z-10">
       {particles.map((p, i) => (
         <div
           key={i}
           className="particle"
           style={{
+            left: p.left,
+            top: p.top,
             width: p.size,
             height: p.size,
             backgroundColor: p.color,
-            boxShadow: `0 0 ${p.size + 2}px ${p.color}`,
+            boxShadow: `0 0 ${p.size + 1}px ${p.color}`,
             '--tx': `${p.tx}px`,
             '--ty': `${p.ty}px`,
             animationDelay: `${p.delay}s`,
