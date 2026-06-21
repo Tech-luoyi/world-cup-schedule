@@ -18,6 +18,7 @@ export default function ScheduleTimeline({
   const mainRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const scrollInProgress = useRef(false);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastDateRef = useRef("");
   const internalChangeRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -35,7 +36,8 @@ export default function ScheduleTimeline({
     const clamped = Math.max(0, Math.min(targetLeft, maxScroll));
     scrollInProgress.current = true;
     container.scrollTo({ left: clamped, behavior: "smooth" });
-    setTimeout(() => { scrollInProgress.current = false; }, 600);
+    clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => { scrollInProgress.current = false; }, 600);
   }, []);
 
   // Sync date strip scroll
@@ -102,6 +104,7 @@ export default function ScheduleTimeline({
     const handleScroll = () => {
       const container = mainRef.current;
       if (container == null) return;
+      if (scrollInProgress.current) return;
       const sections = container.querySelectorAll<HTMLElement>("[data-section]");
       const mid = container.scrollLeft + container.clientWidth / 2;
       let best = 0;
@@ -153,6 +156,9 @@ export default function ScheduleTimeline({
     onDateChange(allDates[index]);
     scrollToDate(index);
     syncDateStrip(index);
+    // Extend scroll guard: mobile smooth scroll takes much longer than 600ms
+    clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => { scrollInProgress.current = false; }, 2000);
   };
 
   // Group matches by date
