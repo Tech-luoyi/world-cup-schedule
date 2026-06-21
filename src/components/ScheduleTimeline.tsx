@@ -18,10 +18,8 @@ export default function ScheduleTimeline({
   const mainRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
   const scrollInProgress = useRef(false);
-  const [activeIndex, setActiveIndex] = useState(() => {
-    const idx = allDates.indexOf(selectedDate);
-    return idx >= 0 ? idx : 0;
-  });
+  const lastDateRef = useRef("");
+  const [activeIndex, setActiveIndex] = useState(0);
 
   // Scroll to center the target date section
   const scrollToDate = useCallback((index: number) => {
@@ -129,10 +127,17 @@ export default function ScheduleTimeline({
     };
   }, [activeIndex, allDates, onDateChange, syncDateStrip]);
 
-  // Scroll to initial position on mount
+  // Scroll to selectedDate when it changes (e.g. after data load determines today)
   useEffect(() => {
-    scrollToDate(activeIndex);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (lastDateRef.current === selectedDate) return;
+    lastDateRef.current = selectedDate;
+    const idx = allDates.indexOf(selectedDate);
+    if (idx >= 0) {
+      setActiveIndex(idx);
+      scrollToDate(idx);
+      syncDateStrip(idx);
+    }
+  }, [selectedDate, allDates, scrollToDate, syncDateStrip]);
 
   // Handle date strip tap — jump to center
   const handleDateTap = (index: number) => {
