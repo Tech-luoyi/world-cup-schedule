@@ -49,9 +49,15 @@ function fakeDiscussion(match: SmachMatch): number {
   return Math.floor(base * multiplier + Math.random() * 10000);
 }
 
-function mapStatus(status: string): "upcoming" | "live" | "finished" {
+function mapStatus(status: string, utcDate: string): "upcoming" | "live" | "finished" {
   if (status === "FINISHED" || status === "AWARDED") return "finished";
   if (status === "LIVE" || status === "IN_PLAY" || status === "PAUSED") return "live";
+  // API only has TIMED for non-finished matches — compute live status from time
+  const matchTime = new Date(utcDate + "Z").getTime();
+  const now = Date.now();
+  const elapsed = now - matchTime; // ms since match start
+  if (elapsed > 0 && elapsed < 150 * 60 * 1000) return "live";    // within 2.5h window
+  if (elapsed >= 150 * 60 * 1000) return "finished";              // past the window
   return "upcoming";
 }
 
@@ -93,7 +99,7 @@ export function transformMatch(raw: SmachMatch): Match {
     awayFlag: getFlagFn(raw.away_team),
     homeScore: raw.home_score ?? undefined,
     awayScore: raw.away_score ?? undefined,
-    status: mapStatus(raw.status),
+    status: mapStatus(raw.status, raw.utc_date),
     venue: raw.venue || getVenueFn(raw.match_id),
     heatIndex: fakeHeat(raw),
     discussionCount: fakeDiscussion(raw),
