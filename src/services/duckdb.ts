@@ -211,8 +211,23 @@ async function _doInit(): Promise<void> {
       under_odds DOUBLE,
       details VARCHAR
     )`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS odds_data (
+      event_id INTEGER NOT NULL,
+      source VARCHAR NOT NULL,
+      bookmaker_key VARCHAR,
+      bookmaker_title VARCHAR,
+      market_type VARCHAR NOT NULL,
+      home_price DOUBLE,
+      away_price DOUBLE,
+      draw_price DOUBLE,
+      handicap DOUBLE,
+      over_under DOUBLE,
+      over_price DOUBLE,
+      under_price DOUBLE,
+      fetched_at BIGINT NOT NULL
+    )`);
     await conn.close();
-    log('Tables created (incl. ESPN match_stats)');
+    log('Tables created (incl. ESPN match_stats, odds_data)');
 
     // 3. Load data from static files
     const { teamMap } = await import('../data/teamMap');
@@ -537,6 +552,87 @@ export function getLastSyncTime(): number {
 /** Whether a sync is currently in progress */
 export function isSyncing(): boolean {
   return _syncing;
+}
+
+// ── The Odds API sync ──
+
+let _oddsSyncing = false;
+let _oddsSyncPromise: Promise<number> | null = null;
+
+/** Sync odds data from The Odds API into DuckDB */
+export async function syncOddsData(): Promise<number> {
+  if (!_db) throw new Error('DuckDB not initialized');
+  if (_oddsSyncing) {
+    if (_oddsSyncPromise) return _oddsSyncPromise;
+    return 0;
+  }
+  _oddsSyncing = true;
+
+  _oddsSyncPromise = (async () => {
+    try {
+      const { fetchAllOdds, flattenOdds } = await import('./odds');
+      const events = await fetchAllOdds();
+      if (events.length === 0) return 0;
+
+      const rows = flattenOdds(events);
+      if (rows.length === 0) return 0;
+
+      // Match odds events to ESPN events by team name
+      const conn = await _db.connect();
+      try {
+        // Clear previous data
+        await conn.query('DELETE FROM odds_data');
+        let inserted = 0;
+
+        for (const r of rows) {
+          const matchResult = await conn.query(
+            `SELECT event_id FROM espn_matches WHERE home_team_key = ${esc(r.homeTeam)} AND away_team_key = ${esc(r.awayTeam)} LIMIT 1`
+          );
+          const matchArr = matchResult.toArray();
+          if (matchArr.length === 0) continue; // no matching ESPN event
+
+          const eventId = (matchArr[0] as any).event_id;
+          await conn.query(
+            `INSERT INTO odds_data VALUES (${eventId},${esc('the_odds_api')},${esc(r.bookmakerKey)},${esc(r.bookmakerTitle)},` +
+            `${esc(r.marketKey)},${escN(r.homePrice)},${escN(r.awayPrice)},${escN(r.drawPrice)},` +
+            `${escN(r.handicap)},${escN(r.overUnder)},${escN(r.overPrice)},${escN(r.underPrice)},${r.timestamp})`
+          );
+          inserted++;
+        }
+
+        console.log(
+          `%c[OddsAPI]%c Synced ${inserted} rows from ${rows.length} flattened, ${events.length} events`,
+          'color:#FF8C00', ''
+        );
+        return inserted;
+      } finally {
+        await conn.close();
+      }
+    } catch (err) {
+      console.error('%c[OddsAPI]%c Sync failed:', 'color:#FF0055', '', err);
+      return 0;
+    } finally {
+      _oddsSyncing = false;
+    }
+  })();
+
+  return _oddsSyncPromise;
+}
+
+/** Get all bookmaker rows for a given event_id */
+export async function getOddsForEvent(eventId: number): Promise<any[]> {
+  if (!_db) return [];
+  const conn = await _db.connect();
+  try {
+    const result = await conn.query(
+      `SELECT * FROM odds_data WHERE event_id = ${eventId} ORDER BY bookmaker_title, market_type`
+    );
+    return result.toArray();
+  } catch {
+    return [];
+  } finally {
+    await conn.close();
+  }
 }
 
 // ── Prediction page query helpers ──

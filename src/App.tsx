@@ -7,7 +7,7 @@ import TeamsPage from "./components/TeamsPage";
 import PredictionsPage from "./components/PredictionsPage";
 import Footer from "./components/Footer";
 import { fetchMatches } from "./services/api";
-import { initDuckDB } from "./services/duckdb";
+import { initDuckDB, syncOddsData } from "./services/duckdb";
 import type { Match } from "./types/match";
 
 function App() {
@@ -24,6 +24,8 @@ function App() {
     console.log('[App] 🔌 Starting DuckDB init...');
     initDuckDB().then(() => {
       console.log('[App] ✅ DuckDB ready');
+      // Start odds sync (fire-and-forget, needs API key)
+      syncOddsData().catch((e) => console.warn('[App] Odds sync failed:', e));
     }).catch((e) => {
       console.error('[App] ❌ DuckDB init failed:', e);
     });

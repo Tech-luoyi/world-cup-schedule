@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, getChineseNameFromAbbr } from "../services/duckdb";
+import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvent, getChineseNameFromAbbr } from "../services/duckdb";
 import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
 
@@ -105,8 +105,9 @@ function ParticleBurst() {
 
 // ── Sub-components ──
 
-function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: string | null }) {
+function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; flashKey: string | null; oddsRows: any[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [showOddsCompare, setShowOddsCompare] = useState(false);
   const hasOdds = match.homeMoneyLine !== null && match.awayMoneyLine !== null;
   const bars = hasOdds && match.homeMoneyLine != null && match.awayMoneyLine != null
     ? moneylineBar3way(match.homeMoneyLine, match.drawMoneyLine, match.awayMoneyLine)
@@ -251,6 +252,68 @@ function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: str
           )}
         </>
       )}
+
+      {/* Multi-bookmaker comparison */}
+      {oddsRows.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowOddsCompare(!showOddsCompare)}
+            className="mt-2 text-[10px] text-[#FF8C00] hover:text-[#FFAA33] transition-colors"
+          >
+            {showOddsCompare ? "收起多公司对比 ▲" : `多公司对比 (${oddsRows.length} 条) ▼`}
+          </button>
+          {showOddsCompare && (
+            <div className="mt-2 pt-2 border-t border-[#222222] overflow-x-auto">
+              <table className="w-full text-[10px]">
+                <thead>
+                  <tr className="border-b border-[#222222] text-[#666666]">
+                    <th className="text-left py-1 pr-2 font-medium whitespace-nowrap">公司</th>
+                    <th className="text-right py-1 px-1 font-medium">主</th>
+                    <th className="text-right py-1 px-1 font-medium">平</th>
+                    <th className="text-right py-1 px-1 font-medium">客</th>
+                    <th className="text-right py-1 px-1 font-medium">让球</th>
+                    <th className="text-right py-1 px-1 font-medium">大小</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Group by bookmaker, find h2h/spreads/totals for each
+                    const groups: Record<string, any[]> = {};
+                    for (const r of oddsRows) {
+                      if (!groups[r.bookmaker_title]) groups[r.bookmaker_title] = [];
+                      groups[r.bookmaker_title].push(r);
+                    }
+                    return Object.entries(groups).map(([title, rows]) => {
+                      const h2h = rows.find((r: any) => r.market_type === 'h2h');
+                      const spread = rows.find((r: any) => r.market_type === 'spreads');
+                      const totals = rows.find((r: any) => r.market_type === 'totals');
+                      return (
+                        <tr key={title} className="border-b border-[#1A1A1A] hover:bg-[#151515]">
+                          <td className="text-left py-1.5 pr-2 text-white font-medium whitespace-nowrap">{title}</td>
+                          <td className="text-right py-1.5 px-1 text-[#00FF41]">{h2h ? formatOdds(h2h.home_price) : '-'}</td>
+                          <td className="text-right py-1.5 px-1 text-[#FF0055]/70">{h2h ? formatOdds(h2h.draw_price) : '-'}</td>
+                          <td className="text-right py-1.5 px-1 text-[#FFAA00]">{h2h ? formatOdds(h2h.away_price) : '-'}</td>
+                          <td className="text-right py-1.5 px-1 text-white whitespace-nowrap">
+                            {spread
+                              ? `${spread.handicap != null ? (spread.handicap >= 0 ? '+' : '') + spread.handicap : '-'} (${formatOdds(spread.home_price)})`
+                              : '-'}
+                          </td>
+                          <td className="text-right py-1.5 px-1 text-white whitespace-nowrap">
+                            {totals
+                              ? `大${totals.over_under ?? '-'} (${formatOdds(totals.over_price)})`
+                              : '-'}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+              <div className="mt-1 text-[9px] text-[#555555]">数据来源: The Odds API</div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -372,25 +435,38 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
   const [statsCount, setStatsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [oddsMap, setOddsMap] = useState<Record<number, any[]>>({});
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await syncEspnData();
+      await Promise.all([syncEspnData(), syncOddsData()]);
       // Re-fetch after sync
       const [m, r, c] = await Promise.all([
         getEspnMatchesWithOdds(),
         getTeamStatsRankings(),
         getEspnMatchStatsCount(),
       ]);
-      setMatches(m.filter((x) => x.status === "pre"));
+      const filtered = m.filter((x) => x.status === "pre");
+      setMatches(filtered);
       setRankings(r);
       setStatsCount(c);
+      // Load odds data for each match
+      await loadOddsForMatches(filtered);
     } catch (e) {
       console.error("[PredictionsPage] Refresh failed:", e);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const loadOddsForMatches = async (mlist: EspnMatchWithOdds[]) => {
+    const map: Record<number, any[]> = {};
+    await Promise.all(mlist.map(async (match) => {
+      const odds = await getOddsForEvent(match.eventId);
+      if (odds.length > 0) map[match.eventId] = odds;
+    }));
+    setOddsMap(map);
   };
 
   useEffect(() => {
@@ -444,9 +520,12 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         }
 
         canFinish = true;
-        setMatches(m.filter((x) => x.status === "pre"));
+        const filtered = m.filter((x) => x.status === "pre");
+        setMatches(filtered);
         setRankings(r);
         setStatsCount(c);
+        // Load odds data for each match
+        loadOddsForMatches(filtered);
       } catch (e) {
         if (retries < MAX_RETRIES) {
           retries++;
@@ -579,7 +658,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
           ) : (
             <div className="max-w-4xl mx-auto px-4 grid gap-3">
               {matches.map((m) => (
-                <OddsCard key={m.eventId} match={m} flashKey={flashKey} />
+                <OddsCard key={m.eventId} match={m} flashKey={flashKey} oddsRows={oddsMap[m.eventId] ?? []} />
               ))}
             </div>
           )}
