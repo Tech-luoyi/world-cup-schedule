@@ -3,6 +3,7 @@ import type { TeamSquad, Player } from '../data/squads';
 // ── Sync caches (populated after DuckDB init) ──
 let _teamCache: Record<string, { flag: string; name: string; continent: string }> | null = null;
 let _venueCache: string[] | null = null;
+let _venueMapCache: Record<number, number> | null = null;
 
 // ── DuckDB instance (singleton) ──
 let _db: any = null;
@@ -36,6 +37,12 @@ export function getContinent(countryName: string): string {
 }
 
 export function getVenue(matchId: number): string {
+  if (_venueMapCache && _venueCache) {
+    const idx = _venueMapCache[matchId];
+    if (idx !== undefined && idx >= 0 && idx < _venueCache.length) {
+      return _venueCache[idx];
+    }
+  }
   if (!_venueCache || _venueCache.length === 0) return 'Unknown';
   return _venueCache[matchId % _venueCache.length];
 }
@@ -180,8 +187,10 @@ async function _doInit(): Promise<void> {
     log(`Inserted ${venueRows.length} venues`);
 
     // 4. Build sync caches
+    const { VENUE_MAP } = await import('../data/venues');
     _teamCache = { ...teamMap };
     _venueCache = [...STADIUMS];
+    _venueMapCache = { ...VENUE_MAP };
 
     _ready = true;
 
