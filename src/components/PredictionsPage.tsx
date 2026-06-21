@@ -228,8 +228,8 @@ function StatsTable({ rankings, nameMap, onSort }: {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-[#222222]">
-            <th className="text-left py-2 pr-2 text-[#666666] font-medium whitespace-nowrap">#</th>
-            <th className="text-left py-2 pr-3 text-[#666666] font-medium whitespace-nowrap">球队</th>
+            <th className="text-left py-2 pr-2 text-[#666666] font-medium whitespace-nowrap sticky left-0 z-10 bg-[#111111]" style={{left:0}}>#</th>
+            <th className="text-left py-2 pr-3 text-[#666666] font-medium whitespace-nowrap sticky z-10 bg-[#111111]" style={{left:'28px'}}>球队</th>
             <th className="text-center py-2 px-2 text-[#666666] font-medium whitespace-nowrap">场次</th>
             {columns.map((col) => (
               <th
@@ -249,8 +249,8 @@ function StatsTable({ rankings, nameMap, onSort }: {
               key={row.teamAbbr}
               className="border-b border-[#1A1A1A] hover:bg-[#151515] transition-colors"
             >
-              <td className="py-2 pr-2 text-[#555555]">{i + 1}</td>
-              <td className="py-2 pr-3 font-bold text-white">{nameMap[row.teamAbbr] ?? row.teamAbbr}</td>
+              <td className="py-2 pr-2 text-[#555555] sticky left-0 z-10 bg-[#111111]" style={{left:0}}>{i + 1}</td>
+              <td className="py-2 pr-3 font-bold text-white sticky z-10 bg-[#111111]" style={{left:'28px'}}>{nameMap[row.teamAbbr] ?? row.teamAbbr}</td>
               <td className="text-center py-2 px-2 text-[#888888]">{row.matchesPlayed}</td>
               {columns.map((col) => {
                 const val = row[col.key] as number;
