@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, getChineseNameFromAbbr } from "../services/duckdb";
 import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
@@ -38,7 +38,7 @@ function formatOdds(val: number | null): string {
 
 // ── Sub-components ──
 
-function OddsCard({ match }: { match: EspnMatchWithOdds }) {
+function OddsCard({ match, flashKey }: { match: EspnMatchWithOdds; flashKey: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const hasOdds = match.homeMoneyLine !== null && match.awayMoneyLine !== null;
   const bars = hasOdds && match.homeMoneyLine != null && match.awayMoneyLine != null
@@ -49,7 +49,14 @@ function OddsCard({ match }: { match: EspnMatchWithOdds }) {
   const awayCn = getChineseNameFromAbbr(match.awayAbbr);
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded-xl p-4 hover:border-[#333333] transition-colors">
+    <div
+      data-match-key={`${match.homeAbbr}-${match.awayAbbr}`}
+      className={`bg-[#111111] border border-[#222222] rounded-xl p-4 transition-colors ${
+        flashKey === `${match.homeAbbr}-${match.awayAbbr}`
+          ? "highlight-flash"
+          : "hover:border-[#333333]"
+      }`}
+    >
       {/* Header: teams + time */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -228,8 +235,7 @@ function StatsTable({ rankings, nameMap, onSort }: {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-[#222222]">
-            <th className="text-left py-2 pr-2 text-[#666666] font-medium whitespace-nowrap sticky left-0 z-10 bg-[#111111]" style={{left:0}}>#</th>
-            <th className="text-left py-2 pr-3 text-[#666666] font-medium whitespace-nowrap sticky z-10 bg-[#111111]" style={{left:'28px'}}>球队</th>
+            <th className="text-left py-2 pr-3 text-[#666666] font-medium whitespace-nowrap sticky left-0 z-10 bg-[#111111]"># 球队</th>
             <th className="text-center py-2 px-2 text-[#666666] font-medium whitespace-nowrap">场次</th>
             {columns.map((col) => (
               <th
@@ -249,8 +255,10 @@ function StatsTable({ rankings, nameMap, onSort }: {
               key={row.teamAbbr}
               className="border-b border-[#1A1A1A] hover:bg-[#151515] transition-colors"
             >
-              <td className="py-2 pr-2 text-[#555555] sticky left-0 z-10 bg-[#111111]" style={{left:0}}>{i + 1}</td>
-              <td className="py-2 pr-3 font-bold text-white sticky z-10 bg-[#111111]" style={{left:'28px'}}>{nameMap[row.teamAbbr] ?? row.teamAbbr}</td>
+              <td className="py-2 pr-3 font-bold text-white sticky left-0 z-10 bg-[#111111]">
+                <span className="text-[#555555] font-normal mr-2">{i + 1}.</span>
+                {nameMap[row.teamAbbr] ?? row.teamAbbr}
+              </td>
               <td className="text-center py-2 px-2 text-[#888888]">{row.matchesPlayed}</td>
               {columns.map((col) => {
                 const val = row[col.key] as number;
@@ -281,10 +289,16 @@ function StatsTable({ rankings, nameMap, onSort }: {
   );
 }
 
+// ── CSS flash animation ──
+const FLASH_DURATION_MS = 2000;
+
 // ── Main component ──
 
-export default function PredictionsPage() {
+export default function PredictionsPage({ highlightMatch: externalHighlight }: { highlightMatch?: { homeKey: string; awayKey: string } | null }) {
   const [view, setView] = useState<"odds" | "stats">("odds");
+  const [flashKey, setFlashKey] = useState<string | null>(null);
+  const prevHighlightRef = useRef<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [matches, setMatches] = useState<EspnMatchWithOdds[]>([]);
   const [rankings, setRankings] = useState<TeamStatsRanking[]>([]);
   const [statsCount, setStatsCount] = useState(0);
@@ -363,6 +377,28 @@ export default function PredictionsPage() {
     loadData();
     return () => { cancelled = true; };
   }, []);
+
+  // ── Highlight: scroll to + flash the targeted match ──
+  useEffect(() => {
+    if (externalHighlight == null) return;
+    const key = `${externalHighlight.homeKey}-${externalHighlight.awayKey}`;
+    if (key === prevHighlightRef.current) return;
+    prevHighlightRef.current = key;
+
+    // Switch to odds view
+    setView("odds");
+
+    // Wait for DOM to render, then scroll and flash
+    const timer = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-match-key="${key}"]`);
+      if (el == null) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashKey(key);
+      clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashKey(null), FLASH_DURATION_MS);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [externalHighlight]);
 
   const nameMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -446,7 +482,7 @@ export default function PredictionsPage() {
           ) : (
             <div className="max-w-4xl mx-auto px-4 grid gap-3">
               {matches.map((m) => (
-                <OddsCard key={m.eventId} match={m} />
+                <OddsCard key={m.eventId} match={m} flashKey={flashKey} />
               ))}
             </div>
           )}

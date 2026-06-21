@@ -18,15 +18,23 @@ function formatStage(stage: string, group?: string): string {
 type MatchCardProps = {
   match: Match;
   onNavigateToTeam: (teamKey: string) => void;
+  onNavigateToPrediction?: (homeKey: string, awayKey: string) => void;
 };
 
-export default function MatchCard({ match, onNavigateToTeam }: MatchCardProps) {
+export default function MatchCard({ match, onNavigateToTeam, onNavigateToPrediction }: MatchCardProps) {
   const isLive = match.status === "live";
   const isUpcoming = match.status === "upcoming";
 
+  const handleCardClick = () => {
+    if (onNavigateToPrediction) {
+      onNavigateToPrediction(match.homeTeamKey, match.awayTeamKey);
+    }
+  };
+
   return (
     <div
-      className={`relative rounded-xl p-4 transition-all duration-300 border ${
+      onClick={handleCardClick}
+      className={`relative rounded-xl p-4 transition-all duration-300 border cursor-pointer ${
         isLive
           ? "bg-[#1A1A1A] border-[#00FF41]/50 live-glow"
           : isUpcoming
@@ -71,7 +79,7 @@ export default function MatchCard({ match, onNavigateToTeam }: MatchCardProps) {
         {/* Home team */}
         <button
           className="flex flex-col items-center flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => onNavigateToTeam(match.homeTeamKey)}
+          onClick={(e) => { e.stopPropagation(); onNavigateToTeam(match.homeTeamKey); }}
           title={`查看${match.homeTeam}球队详情`}
         >
           <span className="text-3xl mb-1">{match.homeFlag}</span>
@@ -103,7 +111,7 @@ export default function MatchCard({ match, onNavigateToTeam }: MatchCardProps) {
         {/* Away team */}
         <button
           className="flex flex-col items-center flex-1 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => onNavigateToTeam(match.awayTeamKey)}
+          onClick={(e) => { e.stopPropagation(); onNavigateToTeam(match.awayTeamKey); }}
           title={`查看${match.awayTeam}球队详情`}
         >
           <span className="text-3xl mb-1">{match.awayFlag}</span>

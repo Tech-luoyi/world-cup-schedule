@@ -17,6 +17,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [highlightMatch, setHighlightMatch] = useState<{ homeKey: string; awayKey: string } | null>(null);
 
   // ── DuckDB init (ESPN sync starts automatically) ──
   useEffect(() => {
@@ -112,6 +113,10 @@ function App() {
     setSelectedTeam(teamKey);
     setActiveTab("teams");
   }, []);
+  const handleNavigateToPrediction = useCallback((homeKey: string, awayKey: string) => {
+    setHighlightMatch({ homeKey, awayKey });
+    setActiveTab("predictions");
+  }, []);
   const handleDateSelect = useCallback((date: string) => setSelectedDate(date), []);
 
   // ── Loading / Error states ──
@@ -177,6 +182,7 @@ function App() {
               selectedDate={selectedDate}
               onDateChange={handleDateSelect}
               onNavigateToTeam={handleNavigateToTeam}
+              onNavigateToPrediction={handleNavigateToPrediction}
             />
           </>
         )}
@@ -188,7 +194,7 @@ function App() {
         {activeTab === "teams" && <TeamsPage selectedTeam={selectedTeam} />}
 
         {/* Tab: 预测 */}
-        {activeTab === "predictions" && <PredictionsPage />}
+        {activeTab === "predictions" && <PredictionsPage highlightMatch={highlightMatch} />}
       </main>
 
       <Footer />

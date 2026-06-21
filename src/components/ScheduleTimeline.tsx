@@ -10,10 +10,11 @@ type Props = {
   selectedDate: string;
   onDateChange: (date: string) => void;
   onNavigateToTeam: (teamKey: string) => void;
+  onNavigateToPrediction?: (homeKey: string, awayKey: string) => void;
 };
 
 export default function ScheduleTimeline({
-  allMatches, allDates, selectedDate, onDateChange, onNavigateToTeam,
+  allMatches, allDates, selectedDate, onDateChange, onNavigateToTeam, onNavigateToPrediction,
 }: Props) {
   const mainRef = useRef<HTMLDivElement>(null);
   const dateStripRef = useRef<HTMLDivElement>(null);
@@ -239,7 +240,7 @@ export default function ScheduleTimeline({
                 ) : (
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                     {dayMatches.map((match) => (
-                      <MatchCard key={match.id} match={match} onNavigateToTeam={onNavigateToTeam} />
+                      <MatchCard key={match.id} match={match} onNavigateToTeam={onNavigateToTeam} onNavigateToPrediction={onNavigateToPrediction} />
                     ))}
                   </div>
                 )}
