@@ -159,7 +159,7 @@ export default function ScheduleTimeline({
       >
         {allDates.map((date, idx) => {
           const d = new Date(date + "T00:00:00");
-          const isToday = date === "2026-06-20";
+          const isToday = date === new Date().toISOString().slice(0, 10);
           const isActive = idx === activeIndex;
           const dayName = format(d, "EEE", { locale: zhCN });
           const md = format(d, "M/dd");

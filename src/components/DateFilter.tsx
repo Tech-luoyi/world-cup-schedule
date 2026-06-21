@@ -13,7 +13,7 @@ export default function DateFilter({ dates, selectedDate, onSelect }: DateFilter
       <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
         {dates.map((date) => {
           const d = new Date(date + "T00:00:00");
-          const isToday = date === "2026-06-20";
+          const isToday = date === new Date().toISOString().slice(0, 10);
           const isSelected = date === selectedDate;
           const dayName = format(d, "EEE", { locale: zhCN });
           const md = format(d, "M/dd");
