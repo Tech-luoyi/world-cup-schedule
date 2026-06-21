@@ -65,7 +65,7 @@ export async function fetchAllOdds(): Promise<OddsEvent[]> {
 
   const regions = "uk,eu,us,asia";
   const markets = "h2h,spreads,totals";
-  const url = `${BASE}/sports/soccer_world_cup/odds/?apiKey=${key}&regions=${regions}&markets=${markets}&oddsFormat=american`;
+  const url = `${BASE}/sports/soccer_fifa_world_cup/odds/?apiKey=${key}&regions=${regions}&markets=${markets}&oddsFormat=american`;
 
   try {
     const res = await fetch(url);
