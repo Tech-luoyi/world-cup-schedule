@@ -4,6 +4,7 @@ import type { TeamSquad, Player } from '../data/squads';
 let _teamCache: Record<string, { flag: string; name: string; continent: string }> | null = null;
 let _venueCache: string[] | null = null;
 let _venueMapCache: Record<number, number> | null = null;
+let _fifaCodeMap: Record<string, string> | null = null;
 
 // ── DuckDB instance (singleton) ──
 let _db: any = null;
@@ -30,6 +31,14 @@ export function getFlag(countryName: string): string {
 
 export function getChineseName(countryName: string): string {
   return _teamCache?.[countryName]?.name ?? countryName;
+}
+
+/** Get Chinese name from a FIFA/ESPN abbreviation (e.g. "MEX" → "墨西哥") */
+export function getChineseNameFromAbbr(abbr: string): string {
+  if (!_fifaCodeMap) return abbr;
+  const teamKey = _fifaCodeMap[abbr];
+  if (!teamKey) return abbr;
+  return getChineseName(teamKey);
 }
 
 export function getContinent(countryName: string): string {
@@ -144,8 +153,66 @@ async function _doInit(): Promise<void> {
       id INTEGER PRIMARY KEY,
       name VARCHAR
     )`);
+    // ESPN match data
+    await conn.query(`CREATE TABLE IF NOT EXISTS espn_matches (
+      event_id INTEGER PRIMARY KEY,
+      date VARCHAR,
+      utc_date VARCHAR,
+      home_team_key VARCHAR,
+      away_team_key VARCHAR,
+      home_abbr VARCHAR,
+      away_abbr VARCHAR,
+      home_score INTEGER,
+      away_score INTEGER,
+      home_record VARCHAR,
+      away_record VARCHAR,
+      status VARCHAR,
+      status_detail VARCHAR
+    )`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS match_stats (
+      event_id INTEGER,
+      team_key VARCHAR,
+      team_abbr VARCHAR,
+      possession_pct DOUBLE,
+      total_shots INTEGER,
+      shots_on_target INTEGER,
+      saves INTEGER,
+      fouls_committed INTEGER,
+      yellow_cards INTEGER,
+      red_cards INTEGER,
+      offsides INTEGER,
+      corners INTEGER,
+      accurate_passes INTEGER,
+      total_passes INTEGER,
+      pass_pct DOUBLE,
+      accurate_crosses INTEGER,
+      total_crosses INTEGER,
+      cross_pct DOUBLE,
+      blocked_shots INTEGER,
+      effective_tackles INTEGER,
+      total_tackles INTEGER,
+      tackle_pct DOUBLE,
+      interceptions INTEGER,
+      effective_clearance INTEGER,
+      total_clearance INTEGER,
+      PRIMARY KEY (event_id, team_key)
+    )`);
+    await conn.query(`CREATE TABLE IF NOT EXISTS espn_pickcenters (
+      event_id INTEGER PRIMARY KEY,
+      provider VARCHAR,
+      home_money_line INTEGER,
+      away_money_line INTEGER,
+      draw_money_line INTEGER,
+      spread DOUBLE,
+      home_spread_odds DOUBLE,
+      away_spread_odds DOUBLE,
+      over_under DOUBLE,
+      over_odds DOUBLE,
+      under_odds DOUBLE,
+      details VARCHAR
+    )`);
     await conn.close();
-    log('Tables created');
+    log('Tables created (incl. ESPN match_stats)');
 
     // 3. Load data from static files
     const { teamMap } = await import('../data/teamMap');
@@ -191,8 +258,16 @@ async function _doInit(): Promise<void> {
     _teamCache = { ...teamMap };
     _venueCache = [...STADIUMS];
     _venueMapCache = { ...VENUE_MAP };
+    // fifaCode (e.g. "JPN") → teamKey (e.g. "Japan")
+    _fifaCodeMap = {};
+    for (const s of squads) {
+      _fifaCodeMap[s.fifaCode] = s.teamKey;
+    }
 
     _ready = true;
+
+    // Start ESPN sync immediately (sets _syncPromise synchronously)
+    syncEspnData().catch((e) => errLog('Auto-sync failed', e));
 
     // Expose DuckDB to dev console for inspection
     exposeToWindow();
@@ -348,5 +423,266 @@ function exposeToWindow() {
       const rows = await win.__duckdb.query(`SELECT COUNT(*) AS cnt FROM ${table}`);
       return rows[0]?.cnt;
     },
+    /** Trigger ESPN data sync */
+    async syncEspn() {
+      const result = await syncEspnData();
+      console.log(`Synced: ${result.matches} matches, ${result.stats} stats`);
+      return result;
+    },
   };
+}
+
+// ── ESPN data sync ──
+
+let _syncing = false;
+let _lastSync = 0;
+let _syncPromise: Promise<{ matches: number; stats: number; pickcenters: number }> | null = null;
+
+/** Wait for the current or next ESPN sync to complete */
+export async function waitForSyncCompletion(): Promise<void> {
+  if (_syncPromise) await _syncPromise;
+}
+
+/** Sync ESPN match data into DuckDB. Safe to call multiple times. */
+export async function syncEspnData(): Promise<{ matches: number; stats: number; pickcenters: number }> {
+  if (!_db) throw new Error('DuckDB not initialized');
+  if (_syncing) {
+    if (_syncPromise) return _syncPromise;
+    return { matches: 0, stats: 0, pickcenters: 0 };
+  }
+  _syncing = true;
+
+  _syncPromise = (async () => {
+    try {
+      const { syncAll } = await import('./espn');
+      const { matches, stats, pickcenters } = await syncAll();
+      const conn = await _db.connect();
+      try {
+        // Replace match data
+        await conn.query('DELETE FROM espn_matches');
+        const matchRows: string[] = [];
+        for (const m of matches) {
+          const homeKey = _fifaCodeMap?.[m.homeAbbr] ?? m.homeAbbr;
+          const awayKey = _fifaCodeMap?.[m.awayAbbr] ?? m.awayAbbr;
+          matchRows.push(
+            `(${m.eventId},${esc(m.date)},${esc(m.utcDate)},${esc(homeKey)},${esc(awayKey)},${esc(m.homeAbbr)},${esc(m.awayAbbr)},` +
+            `${escN(m.homeScore)},${escN(m.awayScore)},${esc(m.homeRecord)},${esc(m.awayRecord)},${esc(m.status)},${esc(m.statusDetail)})`
+          );
+        }
+        if (matchRows.length > 0) {
+          await conn.query(`INSERT INTO espn_matches VALUES ${matchRows.join(',')}`);
+        }
+
+        // Replace stats data
+        await conn.query('DELETE FROM match_stats');
+        const statRows: string[] = [];
+        for (const s of stats) {
+          const homeKey = _fifaCodeMap?.[s.home.abbr] ?? s.home.abbr;
+          const awayKey = _fifaCodeMap?.[s.away.abbr] ?? s.away.abbr;
+          const toRow = (eventId: number, teamKey: string, abbr: string, t: any) =>
+            `(${eventId},${esc(teamKey)},${esc(abbr)},` +
+            `${t.possessionPct},${t.totalShots},${t.shotsOnTarget},${t.saves},` +
+            `${t.foulsCommitted},${t.yellowCards},${t.redCards},${t.offsides},${t.corners},` +
+            `${t.accuratePasses},${t.totalPasses},${t.passPct},` +
+            `${t.accurateCrosses},${t.totalCrosses},${t.crossPct},` +
+            `${t.blockedShots},${t.effectiveTackles},${t.totalTackles},${t.tacklePct},` +
+            `${t.interceptions},${t.effectiveClearance},${t.totalClearance})`;
+          statRows.push(toRow(s.eventId, homeKey, s.home.abbr, s.home));
+          statRows.push(toRow(s.eventId, awayKey, s.away.abbr, s.away));
+        }
+        if (statRows.length > 0) {
+          await conn.query(`INSERT INTO match_stats VALUES ${statRows.join(',')}`);
+        }
+
+        // Replace pickcenter data
+        await conn.query('DELETE FROM espn_pickcenters');
+        const pcRows: string[] = [];
+        for (const p of pickcenters) {
+          pcRows.push(
+            `(${p.eventId},${esc(p.provider)},` +
+            `${p.homeMoneyLine},${p.awayMoneyLine},${escN(p.drawMoneyLine)},${p.spread},` +
+            `${p.homeSpreadOdds},${p.awaySpreadOdds},${p.overUnder},` +
+            `${p.overOdds},${p.underOdds},${esc(p.details)})`
+          );
+        }
+        if (pcRows.length > 0) {
+          await conn.query(`INSERT INTO espn_pickcenters VALUES ${pcRows.join(',')}`);
+        }
+      } finally {
+        await conn.close();
+      }
+
+      _lastSync = Date.now();
+      console.log(
+        `%c[ESPN]%c Synced ${matches.length} matches, ${stats.length} stats, ${pickcenters.length} odds`,
+        'color:#00BFFF', ''
+      );
+      return { matches: matches.length, stats: stats.length, pickcenters: pickcenters.length };
+    } catch (err) {
+      console.error('%c[ESPN]%c Sync failed:', 'color:#FF0055', '', err);
+      return { matches: 0, stats: 0, pickcenters: 0 };
+    } finally {
+      _syncing = false;
+    }
+  })();
+
+  return _syncPromise;
+}
+
+/** Get the last sync timestamp (ms since epoch) */
+export function getLastSyncTime(): number {
+  return _lastSync;
+}
+
+/** Whether a sync is currently in progress */
+export function isSyncing(): boolean {
+  return _syncing;
+}
+
+// ── Prediction page query helpers ──
+
+export interface EspnMatchWithOdds {
+  eventId: number;
+  date: string;
+  utcDate: string;
+  homeTeamKey: string;
+  awayTeamKey: string;
+  homeAbbr: string;
+  awayAbbr: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  homeRecord: string;
+  awayRecord: string;
+  status: string;
+  statusDetail: string;
+  homeMoneyLine: number | null;
+  awayMoneyLine: number | null;
+  drawMoneyLine: number | null;
+  spread: number | null;
+  homeSpreadOdds: number | null;
+  awaySpreadOdds: number | null;
+  overUnder: number | null;
+  overOdds: number | null;
+  underOdds: number | null;
+  details: string | null;
+}
+
+export async function getEspnMatchesWithOdds(): Promise<EspnMatchWithOdds[]> {
+  if (!_db) throw new Error('DuckDB not initialized');
+  const conn = await _db.connect();
+  try {
+    const result = await conn.query(`
+      SELECT m.*, p.home_money_line, p.away_money_line, p.draw_money_line, p.spread,
+             p.home_spread_odds, p.away_spread_odds, p.over_under,
+             p.over_odds, p.under_odds, p.details
+      FROM espn_matches m
+      LEFT JOIN espn_pickcenters p ON m.event_id = p.event_id
+      ORDER BY m.utc_date ASC
+    `);
+    const rows = result.toArray() as any[];
+    return rows.map((r) => ({
+      eventId: r.event_id,
+      date: r.date,
+      utcDate: r.utc_date,
+      homeTeamKey: r.home_team_key,
+      awayTeamKey: r.away_team_key,
+      homeAbbr: r.home_abbr,
+      awayAbbr: r.away_abbr,
+      homeScore: r.home_score,
+      awayScore: r.away_score,
+      homeRecord: r.home_record,
+      awayRecord: r.away_record,
+      status: r.status,
+      statusDetail: r.status_detail,
+      homeMoneyLine: r.home_money_line,
+      awayMoneyLine: r.away_money_line,
+      drawMoneyLine: r.draw_money_line ?? null,
+      spread: r.spread,
+      homeSpreadOdds: r.home_spread_odds,
+      awaySpreadOdds: r.away_spread_odds,
+      overUnder: r.over_under,
+      overOdds: r.over_odds,
+      underOdds: r.under_odds,
+      details: r.details,
+    }));
+  } finally {
+    await conn.close();
+  }
+}
+
+export interface TeamStatsRanking {
+  teamAbbr: string;
+  matchesPlayed: number;
+  avgPossession: number;
+  avgShots: number;
+  avgShotsOnTarget: number;
+  avgSaves: number;
+  avgFouls: number;
+  avgYellowCards: number;
+  avgCorners: number;
+  passPct: number;
+  avgAccuratePasses: number;
+  avgTackles: number;
+  avgInterceptions: number;
+  avgClearance: number;
+}
+
+export async function getTeamStatsRankings(): Promise<TeamStatsRanking[]> {
+  if (!_db) throw new Error('DuckDB not initialized');
+  const conn = await _db.connect();
+  try {
+    const result = await conn.query(`
+      SELECT
+        team_abbr,
+        COUNT(*) AS matches_played,
+        AVG(possession_pct) AS avg_possession,
+        AVG(total_shots) AS avg_shots,
+        AVG(shots_on_target) AS avg_sot,
+        AVG(saves) AS avg_saves,
+        AVG(fouls_committed) AS avg_fouls,
+        AVG(yellow_cards) AS avg_yellow,
+        AVG(corners) AS avg_corners,
+        AVG(pass_pct) AS avg_pass_pct,
+        AVG(accurate_passes) AS avg_acc_passes,
+        AVG(total_tackles) AS avg_tackles,
+        AVG(interceptions) AS avg_int,
+        AVG(effective_clearance) AS avg_clear
+      FROM match_stats
+      GROUP BY team_abbr
+      ORDER BY avg_possession DESC
+    `);
+    const rows = result.toArray() as any[];
+    return rows.map((r) => ({
+      teamAbbr: r.team_abbr,
+      matchesPlayed: r.matches_played,
+      avgPossession: Math.round(r.avg_possession * 10) / 10,
+      avgShots: Math.round(r.avg_shots * 10) / 10,
+      avgShotsOnTarget: Math.round(r.avg_sot * 10) / 10,
+      avgSaves: Math.round(r.avg_saves * 10) / 10,
+      avgFouls: Math.round(r.avg_fouls * 10) / 10,
+      avgYellowCards: Math.round(r.avg_yellow * 10) / 10,
+      avgCorners: Math.round(r.avg_corners * 10) / 10,
+      passPct: Math.round(r.avg_pass_pct * 1000) / 10,
+      avgAccuratePasses: Math.round(r.avg_acc_passes),
+      avgTackles: Math.round(r.avg_tackles * 10) / 10,
+      avgInterceptions: Math.round(r.avg_int * 10) / 10,
+      avgClearance: Math.round(r.avg_clear * 10) / 10,
+    }));
+  } finally {
+    await conn.close();
+  }
+}
+
+export async function getEspnMatchStatsCount(): Promise<number> {
+  if (!_db) return 0;
+  const conn = await _db.connect();
+  try {
+    const result = await conn.query('SELECT COUNT(*) AS cnt FROM match_stats');
+    const rows = result.toArray() as any[];
+    return rows[0]?.cnt ?? 0;
+  } catch {
+    return 0;
+  } finally {
+    await conn.close();
+  }
 }

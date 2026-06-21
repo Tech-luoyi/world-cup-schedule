@@ -4,6 +4,7 @@ import Countdown from "./components/Countdown";
 import ScheduleTimeline from "./components/ScheduleTimeline";
 import StandingsPage from "./components/StandingsPage";
 import TeamsPage from "./components/TeamsPage";
+import PredictionsPage from "./components/PredictionsPage";
 import Footer from "./components/Footer";
 import { fetchMatches } from "./services/api";
 import { initDuckDB } from "./services/duckdb";
@@ -17,7 +18,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
-  // ── DuckDB init (separate effect, fire-and-forget) ──
+  // ── DuckDB init (ESPN sync starts automatically) ──
   useEffect(() => {
     console.log('[App] 🔌 Starting DuckDB init...');
     initDuckDB().then(() => {
@@ -185,6 +186,9 @@ function App() {
 
         {/* Tab: 球队 */}
         {activeTab === "teams" && <TeamsPage selectedTeam={selectedTeam} />}
+
+        {/* Tab: 预测 */}
+        {activeTab === "predictions" && <PredictionsPage />}
       </main>
 
       <Footer />

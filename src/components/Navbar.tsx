@@ -7,6 +7,7 @@ const tabs = [
   { key: "schedule", label: "⚽ 赛程" },
   { key: "standings", label: "🏆 积分榜" },
   { key: "teams", label: "👥 球队" },
+  { key: "predictions", label: "📊 预测" },
 ];
 
 export default function Navbar({ activeTab, onTabChange }: NavProps) {
