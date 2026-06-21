@@ -303,7 +303,7 @@ function StatsTable({ rankings, nameMap, onSort }: {
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-[#222222]">
-            <th className="text-left py-2 pr-3 text-[#666666] font-medium whitespace-nowrap sticky left-0 z-10 bg-[#111111]"># 球队</th>
+            <th className="text-left py-2 pr-4 text-[#666666] font-medium whitespace-nowrap sticky left-0 z-10 bg-[#111111] min-w-[110px]"># 球队</th>
             <th className="text-center py-2 px-2 text-[#666666] font-medium whitespace-nowrap">场次</th>
             {columns.map((col) => (
               <th
@@ -323,8 +323,8 @@ function StatsTable({ rankings, nameMap, onSort }: {
               key={row.teamAbbr}
               className="border-b border-[#1A1A1A] hover:bg-[#151515] transition-colors"
             >
-              <td className="py-2 pr-3 font-bold text-white sticky left-0 z-10 bg-[#111111]">
-                <span className="text-[#555555] font-normal mr-2">{i + 1}.</span>
+              <td className="py-2 pr-4 font-bold text-white whitespace-nowrap sticky left-0 z-10 bg-[#111111] min-w-[110px]">
+                <span className="text-[#555555] font-normal mr-1.5">{i + 1}.</span>
                 {nameMap[row.teamAbbr] ?? row.teamAbbr}
               </td>
               <td className="text-center py-2 px-2 text-[#888888]">{row.matchesPlayed}</td>
