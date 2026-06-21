@@ -505,6 +505,9 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
           await syncEspnData();
         }
 
+        // Sync odds data (waits for App.tsx's fire-and-forget if already started)
+        await syncOddsData();
+
         const [m, r, c] = await Promise.all([
           getEspnMatchesWithOdds(),
           getTeamStatsRankings(),
