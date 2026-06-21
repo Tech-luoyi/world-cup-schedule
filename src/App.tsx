@@ -27,9 +27,10 @@ function App() {
     });
   }, []);
 
-  // ── Fetch match data ──
+  // ── Fetch match data with polling ──
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval>;
 
     const init = async () => {
       try {
@@ -53,10 +54,25 @@ function App() {
       }
     };
 
+    // Periodic refresh for live scores / status changes
+    const poll = async () => {
+      try {
+        const { matches } = await fetchMatches();
+        if (!cancelled && matches.length > 0) {
+          setAllMatches(matches);
+          // Don't override user's selectedDate during polls
+        }
+      } catch {
+        // Silently ignore poll errors
+      }
+    };
+
     init();
+    pollTimer = setInterval(poll, 60000);
 
     return () => {
       cancelled = true;
+      clearInterval(pollTimer);
     };
   }, []);
 
