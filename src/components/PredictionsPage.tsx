@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvent, getChineseNameFromAbbr } from "../services/duckdb";
 import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
+import { fetchChinaLotteryOdds } from "../services/chinaLottery";
+import type { ChinaLotteryOdds } from "../services/chinaLottery";
 
 // ── Helpers ──
 
@@ -142,17 +144,31 @@ function aggregateOddsProbabilities(oddsRows: any[]): {
 
 // ── Sub-components ──
 
-function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; flashKey: string | null; oddsRows: any[] }) {
+function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWithOdds; flashKey: string | null; oddsRows: any[]; chinaOdds?: ChinaLotteryOdds }) {
   const [expanded, setExpanded] = useState(false);
   const [showOddsCompare, setShowOddsCompare] = useState(false);
   const hasOdds = match.homeMoneyLine !== null && match.awayMoneyLine !== null;
-  const bars = hasOdds && match.homeMoneyLine != null && match.awayMoneyLine != null
-    ? moneylineBar3way(match.homeMoneyLine, match.drawMoneyLine, match.awayMoneyLine)
-    : null;
-  const hasDraw = match.drawMoneyLine != null;
   const homeCn = getChineseNameFromAbbr(match.homeAbbr);
   const awayCn = getChineseNameFromAbbr(match.awayAbbr);
   const aggregated = aggregateOddsProbabilities(oddsRows);
+  const bars = hasOdds
+    ? moneylineBar3way(match.homeMoneyLine!, match.drawMoneyLine, match.awayMoneyLine!)
+    : null;
+  const hasDraw = match.drawMoneyLine != null;
+
+  // Chinese lottery probability (decimal odds → true probability)
+  const chinaBar = chinaOdds ? (() => {
+    const hp = 1 / chinaOdds.hadHome;
+    const dp = 1 / chinaOdds.hadDraw;
+    const ap = 1 / chinaOdds.hadAway;
+    const sum = hp + dp + ap;
+    if (sum <= 0) return null;
+    return {
+      home: Math.round((hp / sum) * 100),
+      draw: Math.round((dp / sum) * 100),
+      away: Math.round((ap / sum) * 100),
+    };
+  })() : null;
 
   return (
     <div
@@ -176,27 +192,70 @@ function OddsCard({ match, flashKey, oddsRows }: { match: EspnMatchWithOdds; fla
         </span>
       </div>
 
-      {/* Moneyline probability bar */}
-      {bars && (
+      {/* China Sports Lottery (竞彩) probability bar */}
+      {chinaBar && (
         <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-[#CC0000] mb-1">
+            <span>🇨🇳 中国体彩 竞彩</span>
+            <span className="text-[#888888]">
+              {chinaOdds!.hadHome.toFixed(2)} / {chinaOdds!.hadDraw.toFixed(2)} / {chinaOdds!.hadAway.toFixed(2)}
+            </span>
+          </div>
           <div className="flex h-6 rounded-full overflow-hidden text-[10px] font-bold">
             <div
-              className="bg-[#00FF41]/80 text-[#0A0A0A] flex items-center justify-center transition-all"
+              className="bg-[#CC0000]/80 text-white flex items-center justify-center transition-all"
+              style={{ width: `${chinaBar.home}%` }}
+            >
+              {chinaBar.home > 10 ? `${chinaBar.home}%` : ""}
+            </div>
+            <div
+              className="bg-[#FF6600]/70 text-white flex items-center justify-center transition-all"
+              style={{ width: `${chinaBar.draw}%` }}
+            >
+              {chinaBar.draw > 8 ? `${chinaBar.draw}%` : ""}
+            </div>
+            <div
+              className="bg-[#CC0000]/50 text-white flex items-center justify-center transition-all"
+              style={{ width: `${chinaBar.away}%` }}
+            >
+              {chinaBar.away > 10 ? `${chinaBar.away}%` : ""}
+            </div>
+          </div>
+          <div className="flex justify-between mt-1 text-[10px] text-[#666666]">
+            <span>{homeCn} 胜</span>
+            <span>平</span>
+            <span>{awayCn} 胜</span>
+          </div>
+        </div>
+      )}
+
+      {/* ESPN moneyline implied probability bar */}
+      {bars && (
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-[#888888] mb-1">
+            <span>🎲 盘口隐含胜率</span>
+            <span className="text-[#555555]">
+              {formatOdds(match.homeMoneyLine)} / {hasDraw ? formatOdds(match.drawMoneyLine) : "-"} / {formatOdds(match.awayMoneyLine)}
+            </span>
+          </div>
+          <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
+            <div
+              className="bg-[#00FF41]/60 text-[#0A0A0A] flex items-center justify-center transition-all"
               style={{ width: `${bars.home}%` }}
             >
-              {bars.home > 12 ? `${bars.home}%` : ""}
+              {bars.home > 10 ? `${bars.home}%` : ""}
             </div>
             <div
-              className={`${hasDraw ? "bg-[#FF0055]/60 text-white" : "bg-[#333333] text-[#666666]"} flex items-center justify-center transition-all`}
+              className={`${hasDraw ? "bg-[#FF0055]/40 text-white" : "bg-[#333333] text-[#666666]"} flex items-center justify-center transition-all`}
               style={{ width: `${bars.draw}%` }}
             >
-              {bars.draw > 8 ? `${hasDraw ? "平 " : ""}${bars.draw}%` : ""}
+              {bars.draw > 8 ? `${hasDraw ? "" : ""}${bars.draw}%` : ""}
             </div>
             <div
-              className="bg-[#FFAA00]/70 text-[#0A0A0A] flex items-center justify-center transition-all"
+              className="bg-[#FFAA00]/50 text-[#0A0A0A] flex items-center justify-center transition-all"
               style={{ width: `${bars.away}%` }}
             >
-              {bars.away > 12 ? `${bars.away}%` : ""}
+              {bars.away > 10 ? `${bars.away}%` : ""}
             </div>
           </div>
           <div className="flex justify-between mt-1 text-[10px] text-[#666666]">
@@ -503,6 +562,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [oddsMap, setOddsMap] = useState<Record<number, any[]>>({});
+  const [chinaLotteryMap, setChinaLotteryMap] = useState<Record<number, ChinaLotteryOdds>>({});
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -520,6 +580,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
       setStatsCount(c);
       // Load odds data for each match
       await loadOddsForMatches(filtered);
+      await loadChinaLotteryData(filtered);
     } catch (e) {
       console.error("[PredictionsPage] Refresh failed:", e);
     } finally {
@@ -534,6 +595,21 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
       if (odds.length > 0) map[match.eventId] = odds;
     }));
     setOddsMap(map);
+  };
+
+  const loadChinaLotteryData = async (mlist: EspnMatchWithOdds[]) => {
+    const odds = await fetchChinaLotteryOdds();
+    const map: Record<number, ChinaLotteryOdds> = {};
+    for (const c of odds) {
+      const match = mlist.find((m) => m.homeTeamKey === c.homeTeamKey && m.awayTeamKey === c.awayTeamKey);
+      if (match) {
+        c.eventId = match.eventId;
+        map[match.eventId] = c;
+      } else {
+        console.warn(`[ChinaLottery] No match for ${c.homeTeamKey} vs ${c.awayTeamKey}`);
+      }
+    }
+    setChinaLotteryMap(map);
   };
 
   useEffect(() => {
@@ -596,6 +672,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         setStatsCount(c);
         // Load odds data for each match
         loadOddsForMatches(filtered);
+        loadChinaLotteryData(filtered);
       } catch (e) {
         if (retries < MAX_RETRIES) {
           retries++;
@@ -708,7 +785,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
             <span className="text-[#333333]">|</span>
             <span>📊 {oddsCount} 场有盘口数据</span>
             <span className="text-[#333333]">|</span>
-            <span className="text-[10px] text-[#555555]">DraftKings</span>
+            <span className="text-[10px] text-[#CC0000]">中国体彩竞彩</span>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -728,7 +805,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
           ) : (
             <div className="max-w-4xl mx-auto px-4 grid gap-3">
               {matches.map((m) => (
-                <OddsCard key={m.eventId} match={m} flashKey={flashKey} oddsRows={oddsMap[m.eventId] ?? []} />
+                <OddsCard key={m.eventId} match={m} flashKey={flashKey} oddsRows={oddsMap[m.eventId] ?? []} chinaOdds={chinaLotteryMap[m.eventId]} />
               ))}
             </div>
           )}
