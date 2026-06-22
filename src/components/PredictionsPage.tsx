@@ -4,6 +4,7 @@ import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
 import { fetchChinaLotteryOdds } from "../services/chinaLottery";
 import type { ChinaLotteryOdds } from "../services/chinaLottery";
+import BettingSimulation from "./BettingSimulation";
 
 // ── Helpers ──
 
@@ -512,10 +513,11 @@ const FLASH_DURATION_MS = 2000;
 // ── Main component ──
 
 export default function PredictionsPage({ highlightMatch: externalHighlight }: { highlightMatch?: { homeKey: string; awayKey: string } | null }) {
-  const [view, setView] = useState<"odds" | "stats">("odds");
+  const [view, setView] = useState<"odds" | "stats" | "sim">("odds");
   const [flashKey, setFlashKey] = useState<string | null>(null);
   const prevHighlightRef = useRef<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [allMatches, setAllMatches] = useState<EspnMatchWithOdds[]>([]);
   const [matches, setMatches] = useState<EspnMatchWithOdds[]>([]);
   const [rankings, setRankings] = useState<TeamStatsRanking[]>([]);
   const [statsCount, setStatsCount] = useState(0);
@@ -534,6 +536,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         getTeamStatsRankings(),
         getEspnMatchStatsCount(),
       ]);
+      setAllMatches(m);
       const filtered = m.filter((x) => x.status === "pre");
       setMatches(filtered);
       setRankings(r);
@@ -626,6 +629,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         }
 
         canFinish = true;
+        setAllMatches(m);
         const filtered = m.filter((x) => x.status === "pre");
         setMatches(filtered);
         setRankings(r);
@@ -734,6 +738,16 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         >
           球队数据
         </button>
+        <button
+          onClick={() => setView("sim")}
+          className={`px-6 py-2.5 text-sm font-black rounded-lg transition-all duration-200 ${
+            view === "sim"
+              ? "bg-[#f59e0b] text-[#0A0A0A] shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+              : "bg-[#111111] text-[#888888] hover:text-white hover:bg-[#1A1A1A]"
+          }`}
+        >
+          📊 模拟投注
+        </button>
       </div>
 
       {/* Odds view */}
@@ -796,6 +810,11 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
             </div>
           )}
         </>
+      )}
+
+      {/* Simulation view */}
+      {view === "sim" && (
+        <BettingSimulation allMatches={allMatches} oddsMap={oddsMap} chinaLotteryMap={chinaLotteryMap} />
       )}
     </div>
   );
