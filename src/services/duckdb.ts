@@ -619,13 +619,13 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
           await conn.query('DELETE FROM espn_pickcenters');
           await conn.query(`INSERT INTO espn_pickcenters VALUES ${pcRows.join(',')}`);
         }
+
+        // Cache to localStorage for instant load on next visit
+        _lastSync = Date.now();
+        cacheSetEspn({ matches: matchRows, stats: statRows, pickcenters: pcRows });
       } finally {
         await conn.close();
       }
-
-      _lastSync = Date.now();
-      // Cache to localStorage for instant load on next visit
-      cacheSetEspn({ matches: matchRows, stats: statRows, pickcenters: pcRows });
       console.log(
         `%c[ESPN]%c Synced ${matches.length} matches, ${stats.length} stats, ${pickcenters.length} odds`,
         'color:#00BFFF', ''
