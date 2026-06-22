@@ -251,6 +251,9 @@ async function _doInit(): Promise<void> {
     await conn.close();
     log('Tables created (incl. ESPN match_stats, odds_data)');
 
+    // Restore cached sync data from localStorage (instant, no API calls)
+    await restoreFromCache();
+
     // 3. Load data from static files
     const { teamMap } = await import('../data/teamMap');
     const { STADIUMS } = await import('../data/venues');
@@ -469,6 +472,77 @@ function exposeToWindow() {
   };
 }
 
+// ── Persistent cache (localStorage) ──
+
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface EspnCacheData {
+  matches: string[];  // SQL VALUES rows for espn_matches
+  stats: string[];    // SQL VALUES rows for match_stats
+  pickcenters: string[]; // SQL VALUES rows for espn_pickcenters
+  ts: number;         // cache timestamp
+}
+
+interface OddsCacheData {
+  rows: string[];     // SQL VALUES rows for odds_data
+  ts: number;
+}
+
+function cacheGetEspn(): EspnCacheData | null {
+  try {
+    const raw = localStorage.getItem('wc_espn_sync');
+    if (!raw) return null;
+    const data: EspnCacheData = JSON.parse(raw);
+    if (Date.now() - data.ts > CACHE_TTL) { localStorage.removeItem('wc_espn_sync'); return null; }
+    return data;
+  } catch { return null; }
+}
+function cacheSetEspn(data: Omit<EspnCacheData, 'ts'>): void {
+  try { localStorage.setItem('wc_espn_sync', JSON.stringify({ ...data, ts: Date.now() })); } catch {}
+}
+
+function cacheGetOdds(): OddsCacheData | null {
+  try {
+    const raw = localStorage.getItem('wc_odds_sync');
+    if (!raw) return null;
+    const data: OddsCacheData = JSON.parse(raw);
+    if (Date.now() - data.ts > CACHE_TTL) { localStorage.removeItem('wc_odds_sync'); return null; }
+    return data;
+  } catch { return null; }
+}
+function cacheSetOdds(data: Omit<OddsCacheData, 'ts'>): void {
+  try { localStorage.setItem('wc_odds_sync', JSON.stringify({ ...data, ts: Date.now() })); } catch {}
+}
+
+/** Restore cached data into DuckDB tables. Called during init. */
+export async function restoreFromCache(): Promise<void> {
+  if (!_db) return;
+  const conn = await _db.connect();
+  try {
+    // Restore ESPN data
+    const espn = cacheGetEspn();
+    if (espn && espn.matches.length > 0) {
+      await conn.query(`INSERT INTO espn_matches VALUES ${espn.matches.join(',')}`);
+      if (espn.stats.length > 0) await conn.query(`INSERT INTO match_stats VALUES ${espn.stats.join(',')}`);
+      if (espn.pickcenters.length > 0) await conn.query(`INSERT INTO espn_pickcenters VALUES ${espn.pickcenters.join(',')}`);
+      console.log(`%c[Cache]%c Restored ${espn.matches.length} matches, ${espn.stats.length} stats, ${espn.pickcenters.length} pickcenters`, 'color:#00FF41', '');
+    }
+    // Restore Odds data
+    const odds = cacheGetOdds();
+    if (odds && odds.rows.length > 0) {
+      const BATCH = 500;
+      for (let i = 0; i < odds.rows.length; i += BATCH) {
+        await conn.query(`INSERT INTO odds_data VALUES ${odds.rows.slice(i, i + BATCH).join(',')}`);
+      }
+      console.log(`%c[Cache]%c Restored ${odds.rows.length} odds rows`, 'color:#00FF41', '');
+    }
+  } catch (e) {
+    console.warn('%c[Cache]%c Restore failed (fresh start)', 'color:#FFAA00', '', e);
+  } finally {
+    await conn.close();
+  }
+}
+
 // ── ESPN data sync ──
 
 let _syncing = false;
@@ -550,6 +624,8 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
       }
 
       _lastSync = Date.now();
+      // Cache to localStorage for instant load on next visit
+      cacheSetEspn({ matches: matchRows, stats: statRows, pickcenters: pcRows });
       console.log(
         `%c[ESPN]%c Synced ${matches.length} matches, ${stats.length} stats, ${pickcenters.length} odds`,
         'color:#00BFFF', ''
@@ -637,6 +713,8 @@ export async function syncOddsData(): Promise<number> {
           }
         }
 
+        // Cache to localStorage for instant load on next visit
+        if (insertRows.length > 0) cacheSetOdds({ rows: insertRows });
         console.log(
           `%c[OddsAPI]%c Synced ${insertRows.length} rows from ${rows.length} flattened, ${events.length} events`,
           'color:#FF8C00', ''
