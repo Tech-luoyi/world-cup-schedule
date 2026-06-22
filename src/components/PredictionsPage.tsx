@@ -20,6 +20,15 @@ function formatUtc(utc: string): string {
   }
 }
 
+function moneylineBar3way(homeML: number, drawML: number | null, awayML: number): { home: number; draw: number; away: number } {
+  const homeP = americanToProb(homeML);
+  const awayP = americanToProb(awayML);
+  const drawP = drawML != null ? americanToProb(drawML) : 0;
+  const total = homeP + awayP + drawP;
+  if (total <= 0) return { home: 34, draw: 32, away: 34 };
+  return { home: Math.round((homeP / total) * 100), draw: Math.round((drawP / total) * 100), away: Math.round((awayP / total) * 100) };
+}
+
 function formatOdds(val: number | null): string {
   if (val === null || val === 0) return "-";
   return val > 0 ? `+${val}` : `${val}`;
@@ -138,6 +147,9 @@ function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWi
   const homeCn = getChineseNameFromAbbr(match.homeAbbr);
   const awayCn = getChineseNameFromAbbr(match.awayAbbr);
   const aggregated = aggregateOddsProbabilities(oddsRows);
+  const bars = hasOdds
+    ? moneylineBar3way(match.homeMoneyLine!, match.drawMoneyLine, match.awayMoneyLine!)
+    : null;
 
   // Chinese lottery probability (decimal odds → true probability)
   const chinaBar = chinaOdds ? (() => {
@@ -218,6 +230,26 @@ function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWi
             </div>
             <div className="bg-[#f97316] flex items-center justify-center text-white" style={{ width: `${aggregated.awayProb}%` }}>
               {aggregated.awayProb > 10 ? `${aggregated.awayProb}%` : ""}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ESPN implied probability (last resort fallback, from local data) */}
+      {!chinaBar && !aggregated && bars && (
+        <div className="mb-2">
+          <div className="flex justify-between text-[10px] text-[#555555] mb-0.5">
+            <span>ESPN 盘口隐含胜率</span>
+          </div>
+          <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
+            <div className="bg-[#22c55e] flex items-center justify-center" style={{ width: `${bars.home}%` }}>
+              {bars.home > 10 ? `${bars.home}%` : ""}
+            </div>
+            <div className="bg-[#8b5cf6] flex items-center justify-center text-white" style={{ width: `${bars.draw}%` }}>
+              {bars.draw > 8 ? `${bars.draw}%` : ""}
+            </div>
+            <div className="bg-[#f97316] flex items-center justify-center text-white" style={{ width: `${bars.away}%` }}>
+              {bars.away > 10 ? `${bars.away}%` : ""}
             </div>
           </div>
         </div>
