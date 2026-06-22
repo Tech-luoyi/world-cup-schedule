@@ -3,10 +3,12 @@ import { americanToDecimal, americanToProb } from "../services/espn";
 import { getChineseNameFromAbbr } from "../services/duckdb";
 import type { EspnMatchWithOdds } from "../services/duckdb";
 import type { ChinaLotteryOdds } from "../services/chinaLottery";
+import { predictFromElo, getTeamRating } from "../services/elo";
+import type { EloRating } from "../services/elo";
 
 // ── Types ──
 
-type Source = "multi" | "china" | "espn";
+type Source = "multi" | "china" | "espn" | "elo";
 
 interface SimRow {
   eventId: number;
@@ -126,6 +128,36 @@ function simFromChina(odds: ChinaLotteryOdds, match: EspnMatchWithOdds): SimRow 
   };
 }
 
+/** Compute SimRow from Elo ratings (no decimal odds — uses fair odds from probability) */
+function simFromElo(match: EspnMatchWithOdds, ratings: EloRating[]): SimRow | null {
+  const homeRating = getTeamRating(ratings, match.homeTeamKey);
+  const awayRating = getTeamRating(ratings, match.awayTeamKey);
+  const pred = predictFromElo(homeRating, awayRating);
+  const outcomes: ("home" | "draw" | "away")[] = ["home", "draw", "away"];
+  const probs = [pred.homeWin, pred.draw, pred.awayWin];
+  const bestIdx = probs.indexOf(Math.max(...probs));
+  const predicted = outcomes[bestIdx];
+  // Fair decimal odds (no juice) = 1 / probability
+  const fairDecimal = probs[bestIdx] > 0 ? 1 / probs[bestIdx] : 0;
+
+  return {
+    eventId: match.eventId,
+    homeCn: getChineseNameFromAbbr(match.homeAbbr),
+    awayCn: getChineseNameFromAbbr(match.awayAbbr),
+    homeAbbr: match.homeAbbr,
+    awayAbbr: match.awayAbbr,
+    utcDate: match.utcDate,
+    status: match.status,
+    homeScore: match.homeScore,
+    awayScore: match.awayScore,
+    predicted,
+    prob: Math.round(probs[bestIdx] * 100),
+    bestDecimal: Math.round(fairDecimal * 100) / 100,
+    actual: getActual(match.homeScore, match.awayScore),
+    wouldWin: match.status === "post" ? getActual(match.homeScore, match.awayScore) === predicted : null,
+  };
+}
+
 /** Compute SimRow from ESPN moneyline odds */
 function simFromEspn(match: EspnMatchWithOdds): SimRow | null {
   if (match.homeMoneyLine == null || match.awayMoneyLine == null) return null;
@@ -185,9 +217,10 @@ interface Props {
   allMatches: EspnMatchWithOdds[];
   oddsMap: Record<number, any[]>;
   chinaLotteryMap: Record<number, ChinaLotteryOdds>;
+  eloRatings: EloRating[];
 }
 
-export default function BettingSimulation({ allMatches, oddsMap, chinaLotteryMap }: Props) {
+export default function BettingSimulation({ allMatches, oddsMap, chinaLotteryMap, eloRatings }: Props) {
   const [source, setSource] = useState<Source>("multi");
 
   const rows = useMemo<SimRow[]>(() => {
@@ -202,11 +235,13 @@ export default function BettingSimulation({ allMatches, oddsMap, chinaLotteryMap
         if (odds) row = simFromChina(odds, match);
       } else if (source === "espn") {
         row = simFromEspn(match);
+      } else if (source === "elo") {
+        row = simFromElo(match, eloRatings);
       }
       if (row) result.push(row);
     }
     return result;
-  }, [allMatches, oddsMap, chinaLotteryMap, source]);
+  }, [allMatches, oddsMap, chinaLotteryMap, eloRatings, source]);
 
   const stats = useMemo(() => {
     const finished = rows.filter((r) => r.wouldWin !== null);
@@ -229,8 +264,8 @@ export default function BettingSimulation({ allMatches, oddsMap, chinaLotteryMap
 
   // ── Render ──
 
-  const sourceLabels: Record<Source, string> = { multi: "综合博彩", china: "竞彩", espn: "ESPN" };
-  const sourceTabOrder: Source[] = ["multi", "china", "espn"];
+  const sourceLabels: Record<Source, string> = { multi: "综合博彩", china: "竞彩", espn: "ESPN", elo: "Elo 评分" };
+  const sourceTabOrder: Source[] = ["multi", "china", "espn", "elo"];
 
   return (
     <div className="max-w-4xl mx-auto px-4">

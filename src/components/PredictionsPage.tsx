@@ -5,6 +5,8 @@ import { americanToProb, americanToDecimal } from "../services/espn";
 import { fetchChinaLotteryOdds } from "../services/chinaLottery";
 import type { ChinaLotteryOdds } from "../services/chinaLottery";
 import BettingSimulation from "./BettingSimulation";
+import { computeElo } from "../services/elo";
+import type { EloRating } from "../services/elo";
 
 // ── Helpers ──
 
@@ -525,6 +527,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
   const [refreshing, setRefreshing] = useState(false);
   const [oddsMap, setOddsMap] = useState<Record<number, any[]>>({});
   const [chinaLotteryMap, setChinaLotteryMap] = useState<Record<number, ChinaLotteryOdds>>({});
+  const [eloRatings, setEloRatings] = useState<EloRating[]>([]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -537,6 +540,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         getEspnMatchStatsCount(),
       ]);
       setAllMatches(m);
+      setEloRatings(computeElo(m).ratings);
       const filtered = m.filter((x) => x.status === "pre");
       setMatches(filtered);
       setRankings(r);
@@ -630,6 +634,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
 
         canFinish = true;
         setAllMatches(m);
+        setEloRatings(computeElo(m).ratings);
         const filtered = m.filter((x) => x.status === "pre");
         setMatches(filtered);
         setRankings(r);
@@ -814,7 +819,7 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
 
       {/* Simulation view */}
       {view === "sim" && (
-        <BettingSimulation allMatches={allMatches} oddsMap={oddsMap} chinaLotteryMap={chinaLotteryMap} />
+        <BettingSimulation allMatches={allMatches} oddsMap={oddsMap} chinaLotteryMap={chinaLotteryMap} eloRatings={eloRatings} />
       )}
     </div>
   );
