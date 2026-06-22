@@ -10,7 +10,7 @@
 const API_BASE = "https://api.the-odds-api.com/v4";
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -27,7 +27,7 @@ export default {
     // Build target URL: strip any apiKey the client may send, then add ours
     const params = new URLSearchParams(url.search);
     params.delete("apiKey");
-    params.append("apiKey", API_KEY);
+    params.append("apiKey", env.API_KEY);
 
     const target = `${API_BASE}${url.pathname}?${params.toString()}`;
 

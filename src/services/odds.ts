@@ -80,7 +80,7 @@ export async function fetchAllOdds(): Promise<OddsEvent[]> {
   let url: string;
   if (proxyUrl) {
     // Use proxy (Cloudflare Worker) — apiKey added server-side, never in client
-    url = `${proxyUrl}${path}?${query}`;
+    url = `${proxyUrl.replace(/\/+$/, '')}${path}?${query}`;
   } else {
     // Local dev fallback: direct call with env var
     url = `${DIRECT_BASE}${path}?apiKey=${key}&${query}`;
