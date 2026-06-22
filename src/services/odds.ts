@@ -1,8 +1,11 @@
 // The Odds API client
 // Docs: https://the-odds-api.com
-// Free tier: 500 requests/month, no CORS issues from browser
+//
+// In production (GitHub Pages) use VITE_ODDS_PROXY_URL to avoid exposing the API key.
+// The proxy is a Cloudflare Worker that holds the key as a secret.
+// In local dev, falls back to VITE_ODDS_API_KEY for convenience.
 
-const BASE = "https://api.the-odds-api.com/v4";
+const DIRECT_BASE = "https://api.the-odds-api.com/v4";
 
 export interface OddsOutcome {
   name: string;
@@ -55,17 +58,33 @@ function getApiKey(): string | null {
   return import.meta.env.VITE_ODDS_API_KEY || null;
 }
 
+function getProxyUrl(): string | null {
+  return import.meta.env.VITE_ODDS_PROXY_URL || null;
+}
+
 /** Fetch all markets (h2h, spreads, totals) for World Cup from The Odds API */
 export async function fetchAllOdds(): Promise<OddsEvent[]> {
+  const proxyUrl = getProxyUrl();
   const key = getApiKey();
-  if (!key) {
-    console.warn("[OddsAPI] No VITE_ODDS_API_KEY configured — skipping odds fetch");
+
+  if (!proxyUrl && !key) {
+    console.warn("[OddsAPI] No VITE_ODDS_PROXY_URL or VITE_ODDS_API_KEY configured — skipping odds fetch");
     return [];
   }
 
   const regions = "uk,eu,us";
   const markets = "h2h,spreads,totals";
-  const url = `${BASE}/sports/soccer_fifa_world_cup/odds/?apiKey=${key}&regions=${regions}&markets=${markets}&oddsFormat=american`;
+  const query = `regions=${regions}&markets=${markets}&oddsFormat=american`;
+  const path = `/sports/soccer_fifa_world_cup/odds/`;
+
+  let url: string;
+  if (proxyUrl) {
+    // Use proxy (Cloudflare Worker) — apiKey added server-side, never in client
+    url = `${proxyUrl}${path}?${query}`;
+  } else {
+    // Local dev fallback: direct call with env var
+    url = `${DIRECT_BASE}${path}?apiKey=${key}&${query}`;
+  }
 
   try {
     const res = await fetch(url);
