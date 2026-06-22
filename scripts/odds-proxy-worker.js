@@ -27,7 +27,7 @@ export default {
     // Build target URL: strip any apiKey the client may send, then add ours
     const params = new URLSearchParams(url.search);
     params.delete("apiKey");
-    params.append("apiKey", env.API_KEY);
+    params.append("apiKey", env["API-KEY"]);
 
     const target = `${API_BASE}${url.pathname}?${params.toString()}`;
 
