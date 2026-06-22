@@ -580,31 +580,44 @@ export async function syncOddsData(): Promise<number> {
       // Match odds events to ESPN events by team name
       const conn = await _db.connect();
       try {
-        // Clear previous data
-        await conn.query('DELETE FROM odds_data');
-        let inserted = 0;
+        // Build a Map: "homeTeam|awayTeam" → eventId (single query instead of per-row)
+        const matchResult = await conn.query(
+          `SELECT event_id, home_team_key, away_team_key FROM espn_matches`
+        );
+        const matchArr = matchResult.toArray() as any[];
+        const teamToEventId = new Map<string, number>();
+        for (const m of matchArr) {
+          teamToEventId.set(`${m.home_team_key}|${m.away_team_key}`, m.event_id);
+        }
 
+        // Build INSERT rows in memory, grouped by event_id
+        const insertRows: string[] = [];
         for (const r of rows) {
-          const matchResult = await conn.query(
-            `SELECT event_id FROM espn_matches WHERE home_team_key = ${esc(r.homeTeam)} AND away_team_key = ${esc(r.awayTeam)} LIMIT 1`
-          );
-          const matchArr = matchResult.toArray();
-          if (matchArr.length === 0) continue; // no matching ESPN event
-
-          const eventId = (matchArr[0] as any).event_id;
-          await conn.query(
-            `INSERT INTO odds_data VALUES (${eventId},${esc('the_odds_api')},${esc(r.bookmakerKey)},${esc(r.bookmakerTitle)},` +
+          const key = `${r.homeTeam}|${r.awayTeam}`;
+          const eventId = teamToEventId.get(key);
+          if (!eventId) continue; // no matching ESPN event
+          insertRows.push(
+            `(${eventId},${esc('the_odds_api')},${esc(r.bookmakerKey)},${esc(r.bookmakerTitle)},` +
             `${esc(r.marketKey)},${escN(r.homePrice)},${escN(r.awayPrice)},${escN(r.drawPrice)},` +
             `${escN(r.handicap)},${escN(r.overUnder)},${escN(r.overPrice)},${escN(r.underPrice)},${r.timestamp})`
           );
-          inserted++;
+        }
+
+        // Only delete + bulk insert if we have new data
+        if (insertRows.length > 0) {
+          const BATCH = 500;
+          await conn.query('DELETE FROM odds_data');
+          for (let i = 0; i < insertRows.length; i += BATCH) {
+            const batch = insertRows.slice(i, i + BATCH);
+            await conn.query(`INSERT INTO odds_data VALUES ${batch.join(',')}`);
+          }
         }
 
         console.log(
-          `%c[OddsAPI]%c Synced ${inserted} rows from ${rows.length} flattened, ${events.length} events`,
+          `%c[OddsAPI]%c Synced ${insertRows.length} rows from ${rows.length} flattened, ${events.length} events`,
           'color:#FF8C00', ''
         );
-        return inserted;
+        return insertRows.length;
       } finally {
         await conn.close();
       }
