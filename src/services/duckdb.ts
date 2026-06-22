@@ -45,27 +45,6 @@ export function resetDuckDB(): void {
   console.log('%c[DuckDB]%c State reset (worker was lost)', 'color:#FFD700', '');
 }
 
-/**
- * Run a DuckDB operation with automatic retry on worker death.
- * If the worker died, resets DuckDB, re-initializes, and retries once.
- */
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      return await fn();
-    } catch (e: any) {
-      if (attempt === 0 && isWorkerError(e)) {
-        console.warn('[DuckDB] Worker lost, reinitializing...');
-        resetDuckDB();
-        await initDuckDB();
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw new Error('Unexpected retry exit');
-}
-
 // ── Sync cache getters (available after DuckDB init) ──
 
 export function getFlag(countryName: string): string {
