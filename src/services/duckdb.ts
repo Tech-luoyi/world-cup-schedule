@@ -23,6 +23,49 @@ export function waitForDuckDB(): Promise<void> {
   return Promise.reject(new Error('DuckDB not initialized'));
 }
 
+/** Check if an error is a Web Worker disconnection (mobile browser kills workers aggressively) */
+export function isWorkerError(e: any): boolean {
+  const msg = e?.message ?? e?.toString() ?? '';
+  return msg.includes('Receiving end does not exist') || msg.includes('Connection closed');
+}
+
+/**
+ * Force-reset DuckDB state (worker died, connection lost).
+ * Call this on worker errors, then re-init with initDuckDB().
+ */
+export function resetDuckDB(): void {
+  _db = null;
+  _ready = false;
+  _initPromise = null;
+  _syncing = false;
+  _syncPromise = null;
+  _oddsSyncing = false;
+  _oddsSyncPromise = null;
+  _lastSync = 0;
+  console.log('%c[DuckDB]%c State reset (worker was lost)', 'color:#FFD700', '');
+}
+
+/**
+ * Run a DuckDB operation with automatic retry on worker death.
+ * If the worker died, resets DuckDB, re-initializes, and retries once.
+ */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await fn();
+    } catch (e: any) {
+      if (attempt === 0 && isWorkerError(e)) {
+        console.warn('[DuckDB] Worker lost, reinitializing...');
+        resetDuckDB();
+        await initDuckDB();
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('Unexpected retry exit');
+}
+
 // ── Sync cache getters (available after DuckDB init) ──
 
 export function getFlag(countryName: string): string {
@@ -535,6 +578,8 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
       return { matches: matches.length, stats: stats.length, pickcenters: pickcenters.length };
     } catch (err) {
       console.error('%c[ESPN]%c Sync failed:', 'color:#FF0055', '', err);
+      // Don't swallow worker death errors — let caller retry
+      if (isWorkerError(err)) throw err;
       return { matches: 0, stats: 0, pickcenters: 0 };
     } finally {
       _syncing = false;
@@ -623,6 +668,8 @@ export async function syncOddsData(): Promise<number> {
       }
     } catch (err) {
       console.error('%c[OddsAPI]%c Sync failed:', 'color:#FF0055', '', err);
+      // Don't swallow worker death errors — let caller retry
+      if (isWorkerError(err)) throw err;
       return 0;
     } finally {
       _oddsSyncing = false;

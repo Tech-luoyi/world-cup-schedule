@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvents, getChineseNameFromAbbr } from "../services/duckdb";
+import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvents, getChineseNameFromAbbr, isWorkerError, resetDuckDB } from "../services/duckdb";
 import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
 import { fetchChinaLotteryOdds } from "../services/chinaLottery";
@@ -647,6 +647,11 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         loadOddsForMatches(filtered);
         loadChinaLotteryData(filtered);
       } catch (e) {
+        // On worker death, reset DuckDB state so next attempt re-initializes cleanly
+        if (isWorkerError(e)) {
+          console.warn("[PredictionsPage] DuckDB worker lost, will reinitialize on retry");
+          resetDuckDB();
+        }
         if (retries < MAX_RETRIES) {
           retries++;
           setTimeout(() => { if (!cancelled) loadData(); }, 2000);
