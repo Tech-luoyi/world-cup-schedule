@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvent, getChineseNameFromAbbr } from "../services/duckdb";
+import { waitForDuckDB, waitForSyncCompletion, getEspnMatchesWithOdds, getTeamStatsRankings, getEspnMatchStatsCount, syncEspnData, syncOddsData, getOddsForEvents, getChineseNameFromAbbr } from "../services/duckdb";
 import type { EspnMatchWithOdds, TeamStatsRanking } from "../services/duckdb";
 import { americanToProb, americanToDecimal } from "../services/espn";
 import { fetchChinaLotteryOdds } from "../services/chinaLottery";
@@ -556,11 +556,15 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
   };
 
   const loadOddsForMatches = async (mlist: EspnMatchWithOdds[]) => {
+    const ids = mlist.map((m) => m.eventId);
+    if (ids.length === 0) { setOddsMap({}); return; }
+    const allOdds = await getOddsForEvents(ids);
     const map: Record<number, any[]> = {};
-    await Promise.all(mlist.map(async (match) => {
-      const odds = await getOddsForEvent(match.eventId);
-      if (odds.length > 0) map[match.eventId] = odds;
-    }));
+    for (const row of allOdds) {
+      const eid = (row as any).event_id as number;
+      if (!map[eid]) map[eid] = [];
+      map[eid].push(row);
+    }
     setOddsMap(map);
   };
 

@@ -110,7 +110,7 @@ async function _doInit(): Promise<void> {
     const worker = await _duckdbModule.createWorker(bundle.mainWorker!);
     log('Worker created');
 
-    const logger = new _duckdbModule.ConsoleLogger();
+    const logger = new _duckdbModule.VoidLogger();
     _db = new _duckdbModule.AsyncDuckDB(logger, worker);
 
     log('Instantiating WASM (this may take a moment)...');
@@ -473,8 +473,7 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
       const { matches, stats, pickcenters } = await syncAll();
       const conn = await _db.connect();
       try {
-        // Replace match data
-        await conn.query('DELETE FROM espn_matches');
+        // Replace match data — only delete if we have new data
         const matchRows: string[] = [];
         for (const m of matches) {
           const homeKey = _fifaCodeMap?.[m.homeAbbr] ?? m.homeAbbr;
@@ -485,11 +484,11 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
           );
         }
         if (matchRows.length > 0) {
+          await conn.query('DELETE FROM espn_matches');
           await conn.query(`INSERT INTO espn_matches VALUES ${matchRows.join(',')}`);
         }
 
-        // Replace stats data
-        await conn.query('DELETE FROM match_stats');
+        // Replace stats data — only delete if we have new data
         const statRows: string[] = [];
         for (const s of stats) {
           const homeKey = _fifaCodeMap?.[s.home.abbr] ?? s.home.abbr;
@@ -506,11 +505,11 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
           statRows.push(toRow(s.eventId, awayKey, s.away.abbr, s.away));
         }
         if (statRows.length > 0) {
+          await conn.query('DELETE FROM match_stats');
           await conn.query(`INSERT INTO match_stats VALUES ${statRows.join(',')}`);
         }
 
-        // Replace pickcenter data
-        await conn.query('DELETE FROM espn_pickcenters');
+        // Replace pickcenter data — only delete if we have new data
         const pcRows: string[] = [];
         for (const p of pickcenters) {
           pcRows.push(
@@ -521,6 +520,7 @@ export async function syncEspnData(): Promise<{ matches: number; stats: number; 
           );
         }
         if (pcRows.length > 0) {
+          await conn.query('DELETE FROM espn_pickcenters');
           await conn.query(`INSERT INTO espn_pickcenters VALUES ${pcRows.join(',')}`);
         }
       } finally {
@@ -626,6 +626,23 @@ export async function getOddsForEvent(eventId: number): Promise<any[]> {
   try {
     const result = await conn.query(
       `SELECT * FROM odds_data WHERE event_id = ${eventId} ORDER BY bookmaker_title, market_type`
+    );
+    return result.toArray();
+  } catch {
+    return [];
+  } finally {
+    await conn.close();
+  }
+}
+
+/** Batch fetch odds for multiple events — much faster than calling getOddsForEvent in a loop */
+export async function getOddsForEvents(eventIds: number[]): Promise<any[]> {
+  if (!_db || eventIds.length === 0) return [];
+  const conn = await _db.connect();
+  try {
+    const ids = eventIds.join(",");
+    const result = await conn.query(
+      `SELECT * FROM odds_data WHERE event_id IN (${ids}) ORDER BY event_id, bookmaker_title, market_type`
     );
     return result.toArray();
   } catch {

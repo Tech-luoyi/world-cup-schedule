@@ -29,7 +29,9 @@ export default {
     params.delete("apiKey");
     params.append("apiKey", env["API-KEY"]);
 
-    const target = `${API_BASE}${url.pathname}?${params.toString()}`;
+    // Normalize path: strip any duplicate slashes the client may send
+    const path = url.pathname.replace(/\/{2,}/g, '/');
+    const target = `${API_BASE}${path}?${params.toString()}`;
 
     try {
       const res = await fetch(target);
