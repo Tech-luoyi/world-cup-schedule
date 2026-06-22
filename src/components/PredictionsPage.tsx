@@ -20,19 +20,6 @@ function formatUtc(utc: string): string {
   }
 }
 
-function moneylineBar3way(homeML: number, drawML: number | null, awayML: number): { home: number; draw: number; away: number } {
-  const homeP = americanToProb(homeML);
-  const awayP = americanToProb(awayML);
-  const drawP = drawML != null ? americanToProb(drawML) : 0;
-  const total = homeP + awayP + drawP;
-  if (total <= 0) return { home: 34, draw: 32, away: 34 };
-  return {
-    home: Math.round((homeP / total) * 100),
-    draw: Math.round((drawP / total) * 100),
-    away: Math.round((awayP / total) * 100),
-  };
-}
-
 function formatOdds(val: number | null): string {
   if (val === null || val === 0) return "-";
   return val > 0 ? `+${val}` : `${val}`;
@@ -151,10 +138,6 @@ function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWi
   const homeCn = getChineseNameFromAbbr(match.homeAbbr);
   const awayCn = getChineseNameFromAbbr(match.awayAbbr);
   const aggregated = aggregateOddsProbabilities(oddsRows);
-  const bars = hasOdds
-    ? moneylineBar3way(match.homeMoneyLine!, match.drawMoneyLine, match.awayMoneyLine!)
-    : null;
-  const hasDraw = match.drawMoneyLine != null;
 
   // Chinese lottery probability (decimal odds → true probability)
   const chinaBar = chinaOdds ? (() => {
@@ -192,36 +175,27 @@ function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWi
         </span>
       </div>
 
-      {/* China Sports Lottery (竞彩) probability bar */}
+      {/* Probability bar — prefers China lottery, falls back to multi-bookmaker */}
       {chinaBar && (
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] text-[#CC0000] mb-1">
-            <span>🇨🇳 中国体彩 竞彩</span>
-            <span className="text-[#888888]">
+        <div className="mb-2">
+          <div className="flex justify-between text-[10px] text-[#888888] mb-0.5">
+            <span>🇨🇳 竞彩</span>
+            <span className="text-[#666666]">
               {chinaOdds!.hadHome.toFixed(2)} / {chinaOdds!.hadDraw.toFixed(2)} / {chinaOdds!.hadAway.toFixed(2)}
             </span>
           </div>
-          <div className="flex h-6 rounded-full overflow-hidden text-[10px] font-bold">
-            <div
-              className="bg-[#CC0000]/80 text-white flex items-center justify-center transition-all"
-              style={{ width: `${chinaBar.home}%` }}
-            >
+          <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
+            <div className="bg-[#22c55e] flex items-center justify-center" style={{ width: `${chinaBar.home}%` }}>
               {chinaBar.home > 10 ? `${chinaBar.home}%` : ""}
             </div>
-            <div
-              className="bg-[#FF6600]/70 text-white flex items-center justify-center transition-all"
-              style={{ width: `${chinaBar.draw}%` }}
-            >
+            <div className="bg-[#8b5cf6] flex items-center justify-center text-white" style={{ width: `${chinaBar.draw}%` }}>
               {chinaBar.draw > 8 ? `${chinaBar.draw}%` : ""}
             </div>
-            <div
-              className="bg-[#CC0000]/50 text-white flex items-center justify-center transition-all"
-              style={{ width: `${chinaBar.away}%` }}
-            >
+            <div className="bg-[#f97316] flex items-center justify-center text-white" style={{ width: `${chinaBar.away}%` }}>
               {chinaBar.away > 10 ? `${chinaBar.away}%` : ""}
             </div>
           </div>
-          <div className="flex justify-between mt-1 text-[10px] text-[#666666]">
+          <div className="flex justify-between mt-0.5 text-[10px] text-[#555555]">
             <span>{homeCn} 胜</span>
             <span>平</span>
             <span>{awayCn} 胜</span>
@@ -229,66 +203,20 @@ function OddsCard({ match, flashKey, oddsRows, chinaOdds }: { match: EspnMatchWi
         </div>
       )}
 
-      {/* ESPN moneyline implied probability bar */}
-      {bars && (
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] text-[#888888] mb-1">
-            <span>🎲 盘口隐含胜率</span>
-            <span className="text-[#555555]">
-              {formatOdds(match.homeMoneyLine)} / {hasDraw ? formatOdds(match.drawMoneyLine) : "-"} / {formatOdds(match.awayMoneyLine)}
-            </span>
+      {/* Multi-bookmaker aggregated probability (only when no china lottery) */}
+      {!chinaBar && aggregated && (
+        <div className="mb-2">
+          <div className="flex justify-between text-[10px] text-[#555555] mb-0.5">
+            <span>综合 {aggregated.bookmakerCount} 家赔率</span>
           </div>
           <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
-            <div
-              className="bg-[#00FF41]/60 text-[#0A0A0A] flex items-center justify-center transition-all"
-              style={{ width: `${bars.home}%` }}
-            >
-              {bars.home > 10 ? `${bars.home}%` : ""}
-            </div>
-            <div
-              className={`${hasDraw ? "bg-[#FF0055]/40 text-white" : "bg-[#333333] text-[#666666]"} flex items-center justify-center transition-all`}
-              style={{ width: `${bars.draw}%` }}
-            >
-              {bars.draw > 8 ? `${hasDraw ? "" : ""}${bars.draw}%` : ""}
-            </div>
-            <div
-              className="bg-[#FFAA00]/50 text-[#0A0A0A] flex items-center justify-center transition-all"
-              style={{ width: `${bars.away}%` }}
-            >
-              {bars.away > 10 ? `${bars.away}%` : ""}
-            </div>
-          </div>
-          <div className="flex justify-between mt-1 text-[10px] text-[#666666]">
-            <span>{homeCn} 胜</span>
-            <span>平</span>
-            <span>{awayCn} 胜</span>
-          </div>
-        </div>
-      )}
-
-      {/* Aggregated multi-bookmaker probability */}
-      {aggregated && (
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] text-[#555555] mb-1">
-            <span>综合 {aggregated.bookmakerCount} 家博彩公司预测</span>
-          </div>
-          <div className="flex h-5 rounded-full overflow-hidden text-[9px] font-bold">
-            <div
-              className="bg-[#00FF41]/60 text-[#0A0A0A] flex items-center justify-center transition-all"
-              style={{ width: `${aggregated.homeProb}%` }}
-            >
+            <div className="bg-[#22c55e] flex items-center justify-center" style={{ width: `${aggregated.homeProb}%` }}>
               {aggregated.homeProb > 10 ? `${aggregated.homeProb}%` : ""}
             </div>
-            <div
-              className="bg-[#FF0055]/40 text-white flex items-center justify-center transition-all"
-              style={{ width: `${aggregated.drawProb}%` }}
-            >
+            <div className="bg-[#8b5cf6] flex items-center justify-center text-white" style={{ width: `${aggregated.drawProb}%` }}>
               {aggregated.drawProb > 8 ? `${aggregated.drawProb}%` : ""}
             </div>
-            <div
-              className="bg-[#FFAA00]/50 text-[#0A0A0A] flex items-center justify-center transition-all"
-              style={{ width: `${aggregated.awayProb}%` }}
-            >
+            <div className="bg-[#f97316] flex items-center justify-center text-white" style={{ width: `${aggregated.awayProb}%` }}>
               {aggregated.awayProb > 10 ? `${aggregated.awayProb}%` : ""}
             </div>
           </div>
