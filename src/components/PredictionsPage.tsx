@@ -597,6 +597,25 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
       }
     }, 30000);
 
+    const queryAndDisplay = async () => {
+      const [m, r, c] = await Promise.all([
+        getEspnMatchesWithOdds(),
+        getTeamStatsRankings(),
+        getEspnMatchStatsCount(),
+      ]);
+      if (cancelled) return false;
+      setAllMatches(m);
+      setEloRatings(computeElo(m).ratings);
+      const filtered = m.filter((x) => x.status === "pre");
+      setMatches(filtered);
+      setRankings(r);
+      setStatsCount(c);
+      // Load odds data for each match
+      loadOddsForMatches(filtered);
+      loadChinaLotteryData(filtered);
+      return m.length > 0 || c > 0;
+    };
+
     const loadData = async () => {
       try {
         // Wait for DuckDB (will retry init if previous attempt failed)
@@ -610,42 +629,37 @@ export default function PredictionsPage({ highlightMatch: externalHighlight }: {
         }
         if (cancelled) return;
 
-        // Wait for ESPN sync
-        await waitForSyncCompletion();
+        // Show cached data IMMEDIATELY (restoreFromCache ran during init)
+        const hasCached = await queryAndDisplay();
         if (cancelled) return;
 
-        // Re-trigger sync if retrying (initial auto-sync may have failed)
+        if (hasCached) {
+          canFinish = true;
+          clearTimeout(globalTimeout);
+          setLoading(false);
+        }
+
+        // Now sync in background — page already shows cached data
+        try {
+          await waitForSyncCompletion();
+        } catch { /* ignore */ }
+
         if (retries > 0) {
           await syncEspnData();
         }
 
-        // Sync odds data (waits for App.tsx's fire-and-forget if already started)
         await syncOddsData();
-
-        const [m, r, c] = await Promise.all([
-          getEspnMatchesWithOdds(),
-          getTeamStatsRankings(),
-          getEspnMatchStatsCount(),
-        ]);
         if (cancelled) return;
 
-        // If no data at all, retry with re-sync
-        if (m.length === 0 && r.length === 0 && c === 0 && retries < MAX_RETRIES) {
-          retries++;
-          setTimeout(() => { if (!cancelled) loadData(); }, 2000);
-          return;
-        }
+        // Re-fetch with synced data
+        const hasFresh = await queryAndDisplay();
+        if (cancelled) return;
 
         canFinish = true;
-        setAllMatches(m);
-        setEloRatings(computeElo(m).ratings);
-        const filtered = m.filter((x) => x.status === "pre");
-        setMatches(filtered);
-        setRankings(r);
-        setStatsCount(c);
-        // Load odds data for each match
-        loadOddsForMatches(filtered);
-        loadChinaLotteryData(filtered);
+        if (!hasCached && hasFresh) {
+          clearTimeout(globalTimeout);
+          setLoading(false);
+        }
       } catch (e) {
         // On worker death, reset DuckDB state so next attempt re-initializes cleanly
         if (isWorkerError(e)) {
